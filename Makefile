@@ -11,13 +11,19 @@ test.out: Record.o Comparison.o ComparisonEngine.o Schema.o File.o DBFile.o y.ta
 	
 main: Record.o Comparison.o ComparisonEngine.o Schema.o File.o DBFile.o y.tab.o lex.yy.o main.o
 	$(CC) -o main Record.o Comparison.o ComparisonEngine.o Schema.o File.o DBFile.o y.tab.o lex.yy.o main.o -lfl
+
+gtest: Record.o Comparison.o ComparisonEngine.o Schema.o File.o DBFile.o y.tab.o lex.yy.o gtest.o
+	$(CC) -o gtest Record.o gtest.o Comparison.o ComparisonEngine.o Schema.o File.o DBFile.o y.tab.o lex.yy.o -lfl -l pthread -lgtest
 	
 test.o: test.cc
 	$(CC) -g -c test.cc
 
+gtest.o:
+	$(CC) -g -c gtest.cc
+
 main.o: main.cc
 	$(CC) -g -c main.cc
-	
+
 Comparison.o: Comparison.cc
 	$(CC) -g -c Comparison.cc
 	
@@ -51,3 +57,4 @@ clean:
 	rm -f y.tab.c
 	rm -f lex.yy.c
 	rm -f y.tab.h
+	rm -f *.bin

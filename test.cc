@@ -34,7 +34,6 @@ void test2 () {
 	dbfile.MoveFirst ();
 
 	Record temp;
-	cout << "here\n"; 
 	int counter = 0;
 	while (dbfile.GetNext (temp) == 1) {
 		counter += 1;

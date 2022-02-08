@@ -9,7 +9,6 @@
 #include <string.h>
 #include <iostream>
 
-// stub file .. replace it with your own DBFile.cc
 
 DBFile::DBFile () {
     file = new File();
@@ -27,11 +26,11 @@ DBFile::~DBFile() {
     delete(comparisonEngine);
 }
 
-int DBFile::Create (const char *f_path, fType f_type, void *startup) {
-    if (f_path == NULL || f_path[0] == '\0' || f_type != heap) {
+int DBFile::Create ( const char *fPath, fType f_type, void *startup) {
+    if (fPath == NULL || fPath[0] == '\0' || f_type != heap) {
         return 0;
     }
-    file->Open(0, const_cast<char *>(f_path));
+    file->Open(0, const_cast<char *>(fPath));
     return 1;
 }
 
@@ -46,8 +45,11 @@ void DBFile::Load (Schema &f_schema, const char *loadpath) {
 }
 
 
-int DBFile::Open (const char *f_path) {
-    file->Open(1, const_cast<char *>(f_path));
+int DBFile::Open (const char *fPath) {
+     if (fPath == NULL || fPath[0] == '\0') {
+        return 0;
+    }
+    file->Open(1, const_cast<char *>(fPath));
     readPageNumber = 0;
     return 1;
 }
@@ -55,19 +57,15 @@ int DBFile::Open (const char *f_path) {
 void DBFile::MoveFirst () {
     readPageNumber = 0;
     file->GetPage(readPage, 0);
-    
-    cout << "func mF\n";
 }
 
 int DBFile::Close () {
     int writePageNumber = (file->GetLength() <= 0) ? 0 : file->GetLength();
     file->AddPage(writePage, writePageNumber);
-    cout << file->GetLength() << " Length \n";
     return file->Close();
 }
 
 void DBFile::Add (Record &rec) {
-    cout << "Added\n";
     int writePageNumber = (file->GetLength() <= 0) ? 0 : file->GetLength();
     if(!isWriteMode) {
         writePage->EmptyItOut();
@@ -82,7 +80,6 @@ void DBFile::Add (Record &rec) {
 
 int DBFile::GetNext (Record &fetchme) {
     if(isWriteMode) {
-        cout << "in if \n";
         int writePageNumber = (file->GetLength() <= 0) ? 0 : file->GetLength();
         file->AddPage(writePage, writePageNumber++);
         isWriteMode = false;
