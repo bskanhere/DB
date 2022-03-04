@@ -1,34 +1,63 @@
 #include "gtest/gtest.h"
-#include "DBFile.h"
 #include <iostream>
+#include "BigQ.cc"
+#include "DBFile.h"
 
-
-DBFile dbFile;
-
-TEST(DBFile, SuccessfulCreate) {
-    int fileCreatedStatus = dbFile.Create("gtest.bin", heap, NULL);
-    ASSERT_EQ(fileCreatedStatus, 1);
+TEST(BigQTest1, RecordComparatorTest) {
+    DBFile dbfile;
+	dbfile.Open ("nation.bin");
+    Schema* scheme = new Schema("catalog", "nation");
+    OrderMaker* order = new OrderMaker(scheme);
+    Page bufferPage;
+    Record record1, record2;
+    dbfile.GetNext(record1);
+    dbfile.GetNext(record2);
+    RecordComparator recordComparator (order);
+    EXPECT_EQ(recordComparator.operator()(&record1, &record2), false);
+    dbfile.Close();
 }
 
-TEST(DBFile, SuccessfulOpen) {
-    dbFile.Create("gtest.bin", heap, NULL);
-    dbFile.Close();
-    int readStatus = dbFile.Open("gtest.bin");
-    ASSERT_EQ(readStatus, 1);
+TEST(BigQTest2, RunComparatorTest) {
+    DBFile dbfile;
+	dbfile.Open ("nation.bin");
+    Schema* scheme = new Schema("catalog", "nation");
+    OrderMaker* order = new OrderMaker(scheme);
+    Page bufferPage;
+    Record record1, record2;
+    File file;
+    file.Open(0, "temp");
+    dbfile.GetNext(record1);
+    dbfile.GetNext(record2);
+    bufferPage.Append(&record1);
+    file.AddPage(&bufferPage, 0);
+    bufferPage.EmptyItOut();
+    bufferPage.Append(&record2);
+    file.AddPage(&bufferPage, 1);  
+    class Run* first = new class Run(&file, 0, 1);
+    class Run* second = new class Run(&file, 1, 1);
+    RunComparator runComparator (order);
+    EXPECT_EQ(runComparator.operator()(first, second), false);
+    file.Close();
+    dbfile.Close();
 }
 
-TEST(DBFile, SuccessfulClose) {
-    dbFile.Create("gtest.bin", heap, NULL);
-    int closeStatus = dbFile.Close();
-    ASSERT_EQ(closeStatus, 2);
+TEST(BigQTest3, CleanUpTest) {
+    DBFile dbfile;
+	dbfile.Open ("nation.bin");
+    Schema* scheme = new Schema("catalog", "nation");
+    OrderMaker order (scheme);
+    Pipe in (25);
+    Pipe out (25);
+    Record temp;
+    while(dbfile.GetNext(temp)==1){
+        in.Insert(&temp);
+    }
+    BigQ bigq (in, out, order, 5);
+    EXPECT_FALSE(out.isShutdown());
 }
 
-void TearDown() {
-    dbFile.Close();
-    remove("gtest.bin");
-}
 
-int main(int argc, char *argv[]) {
-    testing::InitGoogleTest(&argc, argv);
+int main(int argc, char **argv) {
+    ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
 }

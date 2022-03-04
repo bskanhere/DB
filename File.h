@@ -14,7 +14,6 @@ using namespace std;
 class Page {
 private:
 	TwoWayList <Record> *myRecs;
-	
 	int numRecs;
 	int curSizeInBytes;
 
@@ -29,7 +28,8 @@ public:
 	// this takes a binary representation of a page and gets the
 	// records from it
 	void FromBinary (char *bits);
-
+	
+	int GetNumRecs();
 	// the deletes the first record from a page and returns it; returns
 	// a zero if there were no records on the page
 	int GetFirst (Record *firstOne);
@@ -73,6 +73,9 @@ public:
 	// if the write is past the end of the file, all of the new pages that
 	// are before the page to be written are zeroed out
 	void AddPage (Page *addMe, off_t whichPage);
+	int GetmyFilDes();
+		
+	int GetcurLength();
 
 	// closes the file and returns the file length (in number of pages)
 	int Close ();
