@@ -1,30 +1,30 @@
 #include "gtest/gtest.h"
-#include "DBFile.h"
+#include "HeapDBFile.h"
 #include <iostream>
 
 
-DBFile dbFile;
+HeapDBFile heapdbFile;
 
 TEST(DBFile, SuccessfulCreate) {
-    int fileCreatedStatus = dbFile.Create("gtest.bin", heap, NULL);
+    int fileCreatedStatus = heapdbFile.Create("gtest.bin", heap, NULL);
     ASSERT_EQ(fileCreatedStatus, 1);
 }
 
 TEST(DBFile, SuccessfulOpen) {
-    dbFile.Create("gtest.bin", heap, NULL);
-    dbFile.Close();
-    int readStatus = dbFile.Open("gtest.bin");
+    heapdbFile.Create("gtest.bin", heap, NULL);
+    heapdbFile.Close();
+    int readStatus = heapdbFile.Open("gtest.bin");
     ASSERT_EQ(readStatus, 1);
 }
 
 TEST(DBFile, SuccessfulClose) {
-    dbFile.Create("gtest.bin", heap, NULL);
-    int closeStatus = dbFile.Close();
+    heapdbFile.Create("gtest.bin", heap, NULL);
+    int closeStatus = heapdbFile.Close();
     ASSERT_EQ(closeStatus, 2);
 }
 
 void TearDown() {
-    dbFile.Close();
+    heapdbFile.Close();
     remove("gtest.bin");
 }
 

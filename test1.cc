@@ -1,5 +1,5 @@
 #include <iostream>
-#include "DBFile.h"
+#include "HeapDBFile.h"
 #include "test1.h"
 
 // make sure that the file path/dir information below is correct
@@ -14,34 +14,34 @@ relation *rel;
 // load from a tpch file
 void test1 () {
 
-	DBFile dbfile;
-	cout << " DBFile will be created at " << rel->path () << endl;
-	dbfile.Create (rel->path(), heap, NULL);
+	HeapDBFile heapdbfile;
+	cout << " HeapDBFile will be created at " << rel->path () << endl;
+	heapdbfile.Create (rel->path(), heap, NULL);
 
 	char tbl_path[100]; // construct path of the tpch flat text file
 	sprintf (tbl_path, "%s%s.tbl", tpch_dir, rel->name()); 
 	cout << " tpch file will be loaded from " << tbl_path << endl;
 
-	dbfile.Load (*(rel->schema ()), tbl_path);
-	dbfile.Close ();
+	heapdbfile.Load (*(rel->schema ()), tbl_path);
+	heapdbfile.Close ();
 }
 
-// sequential scan of a DBfile 
+// sequential scan of a HeapDBfile 
 void test2 () {
 
-	DBFile dbfile;
-	dbfile.Open (rel->path());
-	dbfile.MoveFirst ();
+	HeapDBFile heapdbfile;
+	heapdbfile.Open (rel->path());
+	heapdbfile.MoveFirst ();
 
 	Record temp;
 	int counter = 0;
-	while (dbfile.GetNext (temp) == 1) {
+	while (heapdbfile.GetNext (temp) == 1) {
 		counter += 1;
 		temp.Print (rel->schema());
 			cout << counter << "\n";
 	}
 	cout << " scanned " << counter << " recs \n";
-	dbfile.Close ();
+	heapdbfile.Close ();
 }
 
 // scan of a DBfile and apply a filter predicate
@@ -53,14 +53,14 @@ void test3 () {
 	Record literal;
 	rel->get_cnf (cnf, literal);
 
-	DBFile dbfile;
-	dbfile.Open (rel->path());
-	dbfile.MoveFirst ();
+	HeapDBFile heapdbfile;
+	heapdbfile.Open (rel->path());
+	heapdbfile.MoveFirst ();
 
 	Record temp;
 
 	int counter = 0;
-	while (dbfile.GetNext (temp, cnf, literal) == 1) {
+	while (heapdbfile.GetNext (temp, cnf, literal) == 1) {
 		counter += 1;
 		temp.Print (rel->schema());
 		if (counter % 10000 == 0) {
@@ -68,7 +68,7 @@ void test3 () {
 		}
 	}
 	cout << " selected " << counter << " recs \n";
-	dbfile.Close ();
+	heapdbfile.Close ();
 }
 
 int main () {
