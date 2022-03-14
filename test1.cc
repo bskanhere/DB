@@ -1,4 +1,5 @@
 #include <iostream>
+#include "DBFile.h"
 #include "HeapDBFile.h"
 #include "test1.h"
 
@@ -14,7 +15,7 @@ relation *rel;
 // load from a tpch file
 void test1 () {
 
-	HeapDBFile heapdbfile;
+	DBFile heapdbfile;
 	cout << " HeapDBFile will be created at " << rel->path () << endl;
 	heapdbfile.Create (rel->path(), heap, NULL);
 
@@ -29,7 +30,7 @@ void test1 () {
 // sequential scan of a HeapDBfile 
 void test2 () {
 
-	HeapDBFile heapdbfile;
+	DBFile heapdbfile;
 	heapdbfile.Open (rel->path());
 	heapdbfile.MoveFirst ();
 
@@ -53,7 +54,7 @@ void test3 () {
 	Record literal;
 	rel->get_cnf (cnf, literal);
 
-	HeapDBFile heapdbfile;
+	DBFile heapdbfile;
 	heapdbfile.Open (rel->path());
 	heapdbfile.MoveFirst ();
 

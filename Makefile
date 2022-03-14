@@ -6,8 +6,8 @@ ifdef linux
 tag = -n
 endif
 
-test1.out: Record.o Comparison.o ComparisonEngine.o Schema.o File.o HeapDBFile.o y.tab.o lex.yy.o test1.o
-	$(CC) -o test1.out Record.o Comparison.o ComparisonEngine.o Schema.o File.o HeapDBFile.o y.tab.o lex.yy.o test1.o -lfl
+test1.out: Record.o Comparison.o ComparisonEngine.o Schema.o File.o DBFile.o Pipe.o BigQ.o GenericDBFile.o HeapDBFile.o SortedDBFile.o y.tab.o lex.yy.o test1.o
+	$(CC) -o test1.out Record.o Comparison.o ComparisonEngine.o Schema.o File.o DBFile.o Pipe.o BigQ.o GenericDBFile.o HeapDBFile.o SortedDBFile.o y.tab.o lex.yy.o test1.o -lfl -lpthread
 
 test2_1.out: Record.o Comparison.o ComparisonEngine.o Schema.o File.o BigQ.o HeapDBFile.o Pipe.o y.tab.o lex.yy.o test2_1.o
 	$(CC) -o test2_1.out Record.o Comparison.o ComparisonEngine.o Schema.o File.o BigQ.o HeapDBFile.o Pipe.o y.tab.o lex.yy.o test2_1.o -lfl -lpthread
@@ -41,9 +41,18 @@ Comparison.o: Comparison.cc
 	
 ComparisonEngine.o: ComparisonEngine.cc
 	$(CC) -g -c ComparisonEngine.cc
-	
+
+GenericDBFile.o: GenericDBFile.cc
+	$(CC) -g -c GenericDBFile.cc
+
 HeapDBFile.o: HeapDBFile.cc
 	$(CC) -g -c HeapDBFile.cc
+
+SortedDBFile.o: SortedDBFile.cc
+	$(CC) -g -c SortedDBFile.cc
+
+DBFile.o: DBFile.cc
+	$(CC) -g -c DBFile.cc
 
 File.o: File.cc
 	$(CC) -g -c File.cc

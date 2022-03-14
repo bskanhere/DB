@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <iostream>
+#include "DBFIle.h"
 #include "HeapDBFile.h"
 #include "Record.h"
 using namespace std;
