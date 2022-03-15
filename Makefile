@@ -11,7 +11,10 @@ test1.out: Record.o Comparison.o ComparisonEngine.o Schema.o File.o DBFile.o Pip
 
 test2_1.out: Record.o Comparison.o ComparisonEngine.o Schema.o File.o BigQ.o HeapDBFile.o Pipe.o y.tab.o lex.yy.o test2_1.o
 	$(CC) -o test2_1.out Record.o Comparison.o ComparisonEngine.o Schema.o File.o BigQ.o HeapDBFile.o Pipe.o y.tab.o lex.yy.o test2_1.o -lfl -lpthread
-	
+
+test.out: Record.o Comparison.o ComparisonEngine.o Schema.o File.o BigQ.o DBFile.o GenericDBFile.o HeapDBFile.o SortedDBFile.o Pipe.o y.tab.o lex.yy.o test.o
+	$(CC) -o test.out Record.o Comparison.o ComparisonEngine.o Schema.o File.o BigQ.o DBFile.o GenericDBFile.o HeapDBFile.o SortedDBFile.o Pipe.o y.tab.o lex.yy.o test.o -lpthread #-lfl
+
 main: Record.o Comparison.o ComparisonEngine.o Schema.o File.o HeapDBFile.o y.tab.o lex.yy.o main.o
 	$(CC) -o main Record.o Comparison.o ComparisonEngine.o Schema.o File.o HeapDBFile.o y.tab.o lex.yy.o main.o -lfl
 
@@ -26,6 +29,7 @@ test1.o: test1.cc
 
 test2_1.o: test2_1.cc
 	$(CC) -g -c test2_1.cc
+
 
 gtest1.o:
 	$(CC) -g -c gtest1.cc
@@ -84,3 +88,4 @@ clean:
 	rm -f lex.yy.c
 	rm -f y.tab.h
 	rm -f *.bin
+	rm -rf *.meta

@@ -12,6 +12,9 @@ BigQ :: BigQ (Pipe &in, Pipe &out, OrderMaker &sortorder, int runlen) {
 }
 
 void* TPMMSAlgo(void* arg) {
+    
+    cout << "Begin Worker Thread" << endl;
+
     WorkerThreadArgs* workerThreadArgs = (WorkerThreadArgs*) arg;
     priority_queue<Run*, vector<Run*>, RunComparator> runHeap(workerThreadArgs->order);
     priority_queue<Record*, vector<Record*>, RecordComparator> recordHeap (workerThreadArgs->order);
@@ -36,13 +39,13 @@ void* TPMMSAlgo(void* arg) {
                 bufferPage.EmptyItOut();
                 int startIndex = pageIndex;
                 while (!recordHeap.empty()) {
-                    Record* tempRecord = new Record;
-                    tempRecord->Copy(recordHeap.top());
+                    Record* tempRecord1 = new Record;
+                    tempRecord1->Copy(recordHeap.top());
                     recordHeap.pop();
-                    if (bufferPage.Append(tempRecord) == 0) {
+                    if (bufferPage.Append(tempRecord1) == 0) {
                         tpmmsTempFile.AddPage(&bufferPage, pageIndex++);
                         bufferPage.EmptyItOut();
-                        bufferPage.Append(tempRecord);
+                        bufferPage.Append(tempRecord1);
                     }
                 }
                 tpmmsTempFile.AddPage(&bufferPage, pageIndex++);
@@ -77,7 +80,10 @@ void* TPMMSAlgo(void* arg) {
         recordHeap = priority_queue<Record*, vector<Record*>, RecordComparator> (workerThreadArgs->order);
     }
 
+    cout << "Phase 1 complete" << endl;
+
     while (!runHeap.empty()) {//Phase 2 -  Merging Runs to Produce Sorted Records
+        cout << "Phase 2 in-progress" << endl;
         Run* run = runHeap.top();
         runHeap.pop();
         workerThreadArgs->out->Insert(run->currRecord);
@@ -85,8 +91,9 @@ void* TPMMSAlgo(void* arg) {
             runHeap.push(run);
         }
     }
-    tpmmsTempFile.Close();
+    cout << "Phase 2 complete" << endl;
     workerThreadArgs->out->ShutDown();
+    tpmmsTempFile.Close();
     return NULL;
 }
 

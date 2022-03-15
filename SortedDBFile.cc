@@ -29,7 +29,6 @@ int SortedDBFile::Create (const char *f_path, fType f_type, void *startup) {
     return 1;
 }
 
-
 void SortedDBFile::Load (Schema &f_schema, const char *loadpath) {
     FILE *tableFile = fopen (loadpath, "r");
     Record temp;
@@ -199,29 +198,24 @@ void SortedDBFile::readMode(){
         boundCalculated = 0;
         isWriting = 0;
         in->ShutDown();
-        if(thread!= nullptr) {
-            pthread_join (*thread, NULL);
-            delete thread;
-        }
         char* f_merge = "tempMergedFile.bin";
-        char* f_dif = "tempDifFile.bin";
         // merge
         DBFile mergedFile;
         mergedFile.Create(f_merge, heap, nullptr);
-
-        DBFile difFile;
-        difFile.Open(f_dif);
 
         this->MoveFirst();
         Record rec1;
         Record rec2;
         ComparisonEngine comparisonEngine;
-        int st1 = difFile.GetNext(rec1);
+        //int st1 = difFile.GetNext(rec1);
+        int st1 = out->Remove(&rec1);
         int st2 = this->GetNext(rec2);
         while(st1 && st2){
             if (comparisonEngine.Compare(&rec1, &rec2, orderMaker) < 0){
+                cout << "Removded From Pipe" << endl;
                 mergedFile.Add(rec1);
-                st1 = difFile.GetNext(rec1);
+                //st1 = difFile.GetNext(rec1);
+                st1 = out->Remove(&rec1);
             }
             else{
                 mergedFile.Add(rec2);
@@ -229,17 +223,21 @@ void SortedDBFile::readMode(){
             }
         }
         while(st1){
+            cout << "Removded From Pipe" << endl;
             mergedFile.Add(rec1);
-            st1 = difFile.GetNext(rec1);
+            //st1 = difFile.GetNext(rec1);
+            st1 = out->Remove(&rec1);
         }
         while(st2){
             mergedFile.Add(rec2);
             st2 = this->GetNext(rec2);
         }
-        difFile.Close();
+        if(thread!= nullptr) {
+            pthread_join (*thread, NULL);
+            delete thread;
+        }
         mergedFile.Close();
         diskFile.Close();
-        remove(f_dif);
         remove(out_path);
         rename(f_merge, out_path);
     }
