@@ -5,13 +5,13 @@
 #include "BigQ.h"
 
 
-class SortedDBFile :public GenericDBFile{
+class SortedDBFile : public GenericDBFile {
     friend class DBFile;
 private:
     File diskFile;
     Page bufferPage;
     off_t pageIndex;
-    int isWriting;
+    bool isWriteMode;
     const char* out_path = nullptr;
     int boundCalculated = 0;
     int lowerBound;
@@ -24,8 +24,7 @@ private:
     OrderMaker* orderMaker = nullptr;
     int runLength;
 
-    void writeMode();
-    void readMode();
+    void addRecordsToSortedFile();
     static void *consumer (void *arg);
     int Run (Record *left, Record *literal, Comparison *c);
 public:

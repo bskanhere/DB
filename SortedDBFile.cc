@@ -14,7 +14,7 @@
 
 
 SortedDBFile::SortedDBFile() {
-    isWriting = 0;
+    isWriteMode = false;
     pageIndex = 0;
 }
 
@@ -23,7 +23,7 @@ int SortedDBFile::Create (const char *f_path, fType f_type, void *startup) {
     diskFile.Open(0, const_cast<char *>(f_path));
     out_path = f_path;
     pageIndex = 0;
-    isWriting = 0;
+    isWriteMode = false;
     MoveFirst();
     cout<<"end Create" << endl;
     return 1;
@@ -37,7 +37,6 @@ void SortedDBFile::Load (Schema &f_schema, const char *loadpath) {
     while (temp.SuckNextRecord (&f_schema, tableFile) == 1) {
         this->Add(temp);
     }
-//    in->ShutDown();
     fclose(tableFile);
 }
 
@@ -45,42 +44,52 @@ int SortedDBFile::Open (const char *f_path) {
     diskFile.Open(1, const_cast<char *>(f_path));
     pageIndex = 0;
     out_path = f_path;
-    //Reading mode on default
-    isWriting = 0;
+    isWriteMode = false;
     MoveFirst();
     return 1;
 }
 
 void SortedDBFile::MoveFirst () {
-    readMode();
+    addRecordsToSortedFile();
     pageIndex = 0;
     bufferPage.EmptyItOut();
-    //If DBfile is not empty
     if (diskFile.GetLength() > 0) {
         diskFile.GetPage(&bufferPage, pageIndex);
     }
 }
 
 int SortedDBFile::Close () {
-    readMode();
+    addRecordsToSortedFile();
     bufferPage.EmptyItOut();
     diskFile.Close();
-    if(in!= nullptr)delete in;
-    if(out!= nullptr)delete out;
+    if(in != nullptr)
+        delete in;
+    if(out != nullptr)
+        delete out;
     return 1;
 }
 
 void SortedDBFile::Add (Record &rec) {
-//    cout<< "begin Add " << endl;
-
-    writeMode();
+    boundCalculated = 0;
+    if(!isWriteMode) {
+        cout << "Change from Read to Write Mode " << endl;
+        isWriteMode = true;
+        //Construct arguement used for worker thread
+        WorkerThreadArgs *workerThreadArgs = new WorkerThreadArgs;
+        workerThreadArgs->in = in;
+        workerThreadArgs->out = out;
+        workerThreadArgs->order = orderMaker;
+        workerThreadArgs->runlen = runLength;
+        thread = new pthread_t();
+        pthread_create(thread, NULL, TPMMSAlgo, (void *) workerThreadArgs);
+        cout << "In Write Mode" << endl;
+    }
     in->Insert(&rec);
-//    cout<< "end Add " << endl;
 }
 
 int SortedDBFile::GetNext (Record &fetchme) {
     //If file is writing, then write page into disk based file, redirect page ot first page
-    readMode();
+    addRecordsToSortedFile();
     //If reach the end of page
 //    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
@@ -172,65 +181,40 @@ int SortedDBFile::GetNext (Record &fetchme, CNF &cnf, Record &literal) {
     return 0;
 }
 
-void SortedDBFile::writeMode(){
-    boundCalculated = 0;
-    if(isWriting==0) {
-        cout << "begin writeMode " << endl;
-        isWriting = 1;
-    //    ThreadArg arg2 = {out_path, out};
-    //    thread2 = new pthread_t();
-    //    pthread_create (thread2, NULL, consumer, (void*)&arg2);
-    //    bigQ = new BigQ(*in, *out, *orderMaker, runLength);
-        //Construct arguement used for worker thread
-        WorkerThreadArgs *workerThreadArgs = new WorkerThreadArgs;
-        workerThreadArgs->in = in;
-        workerThreadArgs->out = out;
-        workerThreadArgs->order = orderMaker;
-        workerThreadArgs->runlen = runLength;
-        thread = new pthread_t();
-        pthread_create(thread, NULL, TPMMSAlgo, (void *) workerThreadArgs);
-        cout << "end writeMode " << endl;
-    }
-}
-
-void SortedDBFile::readMode(){
-    if(isWriting==1){
+void SortedDBFile::addRecordsToSortedFile(){
+    if(isWriteMode){
         boundCalculated = 0;
-        isWriting = 0;
+        isWriteMode = false;
         in->ShutDown();
-        char* f_merge = "tempMergedFile.bin";
-        // merge
+
         DBFile mergedFile;
-        mergedFile.Create(f_merge, heap, nullptr);
+        mergedFile.Create("mergedFile.bin", heap, nullptr);
 
         this->MoveFirst();
-        Record rec1;
-        Record rec2;
+        Record left;
+        Record right;
         ComparisonEngine comparisonEngine;
-        //int st1 = difFile.GetNext(rec1);
-        int st1 = out->Remove(&rec1);
-        int st2 = this->GetNext(rec2);
-        while(st1 && st2){
-            if (comparisonEngine.Compare(&rec1, &rec2, orderMaker) < 0){
+        int successLeft = out->Remove(&left);
+        int successRight = this->GetNext(right);
+        while(successLeft && successRight){
+            if (comparisonEngine.Compare(&left, &right, orderMaker) < 0){
                 cout << "Removded From Pipe" << endl;
-                mergedFile.Add(rec1);
-                //st1 = difFile.GetNext(rec1);
-                st1 = out->Remove(&rec1);
+                mergedFile.Add(left);
+                successLeft = out->Remove(&left);
             }
             else{
-                mergedFile.Add(rec2);
-                st2 = this->GetNext(rec2);
+                mergedFile.Add(right);
+                successRight = this->GetNext(right);
             }
         }
-        while(st1){
+        while(successLeft){
             cout << "Removded From Pipe" << endl;
-            mergedFile.Add(rec1);
-            //st1 = difFile.GetNext(rec1);
-            st1 = out->Remove(&rec1);
+            mergedFile.Add(left);
+            successLeft = out->Remove(&left);
         }
-        while(st2){
-            mergedFile.Add(rec2);
-            st2 = this->GetNext(rec2);
+        while(successRight){
+            mergedFile.Add(right);
+            successRight = this->GetNext(right);
         }
         if(thread!= nullptr) {
             pthread_join (*thread, NULL);
@@ -239,7 +223,7 @@ void SortedDBFile::readMode(){
         mergedFile.Close();
         diskFile.Close();
         remove(out_path);
-        rename(f_merge, out_path);
+        rename("mergedFile.bin", out_path);
     }
 }
 

@@ -1,5 +1,9 @@
-//
-// Created by LJJ on 2/24/21.
-//
+#include "GenericDBFile.h"
 
-//#include "DBFileGeneric.h"
+GenericDBFile:: GenericDBFile() {
+
+}
+
+GenericDBFile:: ~GenericDBFile() {
+
+}
