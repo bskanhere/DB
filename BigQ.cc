@@ -80,10 +80,7 @@ void* TPMMSAlgo(void* arg) {
         recordHeap = priority_queue<Record*, vector<Record*>, RecordComparator> (workerThreadArgs->order);
     }
 
-    cout << "Phase 1 complete" << endl;
-
     while (!runHeap.empty()) {//Phase 2 -  Merging Runs to Produce Sorted Records
-        cout << "Phase 2 in-progress" << endl;
         Run* run = runHeap.top();
         runHeap.pop();
         workerThreadArgs->out->Insert(run->currRecord);
@@ -91,7 +88,6 @@ void* TPMMSAlgo(void* arg) {
             runHeap.push(run);
         }
     }
-    cout << "Phase 2 complete" << endl;
     workerThreadArgs->out->ShutDown();
     tpmmsTempFile.Close();
     return NULL;

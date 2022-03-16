@@ -56,13 +56,11 @@ int SortedDBFile::Create (const char *f_path, fType f_type, void *startup) {
     }
     meta_data_file.close();
 
-    cout<<"begin c Create"<<endl;
     file.Open(0, const_cast<char *>(f_path));
     path = f_path;
     pageIndex = 0;
     isWriteMode = false;
     MoveFirst();
-    cout<<"end Create" << endl;
     return 1;
 }
 
@@ -141,7 +139,6 @@ int SortedDBFile::Close () {
 void SortedDBFile::Add (Record &rec) {
     boundCalculated = 0;
     if(!isWriteMode) {
-        cout << "Change from Read to Write Mode " << endl;
         isWriteMode = true;
         WorkerThreadArgs *workerThreadArgs = new WorkerThreadArgs;
         workerThreadArgs->in = in;
@@ -150,7 +147,6 @@ void SortedDBFile::Add (Record &rec) {
         workerThreadArgs->runlen = runLength;
         thread = new pthread_t();
         pthread_create(thread, NULL, TPMMSAlgo, (void *) workerThreadArgs);
-        cout << "In Write Mode" << endl;
     }
     in->Insert(&rec);
 }
@@ -356,7 +352,6 @@ void SortedDBFile::addRecordsToSortedFile() {
         int successRight = this->GetNext(right);
         while(successLeft && successRight){
             if (comparisonEngine.Compare(&left, &right, orderMaker) < 0) {
-                cout << "Removded From Pipe" << endl;
                 mergedFile.Add(left);
                 successLeft = out->Remove(&left);
             } else {
@@ -365,7 +360,6 @@ void SortedDBFile::addRecordsToSortedFile() {
             }
         }
         while(successLeft) {
-            cout << "Removded From Pipe" << endl;
             mergedFile.Add(left);
             successLeft = out->Remove(&left);
         }

@@ -11,11 +11,15 @@
 #include <iostream>
 #include <fstream>
 
-DBFile::DBFile () {
+DBFile::DBFile() {
 
 }
 
-int DBFile::Create (const char *f_path, fType f_type, void *startup) {
+DBFile::~DBFile() {
+
+}
+
+int DBFile::Create(const char *f_path, fType f_type, void *startup) {
 //    cout<< "DBFile Create" << endl;
     char meta_data_file_name[100];
     sprintf(meta_data_file_name, "%s.metadata", f_path);
@@ -38,13 +42,13 @@ int DBFile::Create (const char *f_path, fType f_type, void *startup) {
     return res;
 }
 
-void DBFile::Load (Schema &f_schema, const char *loadpath) {
+void DBFile::Load(Schema &f_schema, const char *loadpath) {
     myInternalVar->Load(f_schema, loadpath);
 }
 
-int DBFile::Open (const char *f_path) {
+int DBFile::Open(const char *f_path) {
     char meta_data_file_name[100];
-    sprintf (meta_data_file_name, "%s.metadata", f_path);
+    sprintf(meta_data_file_name, "%s.metadata", f_path);
     ifstream meta_data_file(meta_data_file_name);
 
     string s;
@@ -63,24 +67,24 @@ int DBFile::Open (const char *f_path) {
     return res;
 }
 
-void DBFile::MoveFirst () {
+void DBFile::MoveFirst() {
     myInternalVar->MoveFirst();
 }
 
-int DBFile::Close () {
+int DBFile::Close() {
     int res = myInternalVar->Close();
     delete myInternalVar;
     return res;
 }
 
-void DBFile::Add (Record &rec) {
+void DBFile::Add(Record &rec) {
     myInternalVar->Add(rec);
 }
 
-int DBFile::GetNext (Record &fetchme) {
+int DBFile::GetNext(Record &fetchme) {
     return myInternalVar->GetNext(fetchme);
 }
 
-int DBFile::GetNext (Record &fetchme, CNF &cnf, Record &literal) {
+int DBFile::GetNext(Record &fetchme, CNF &cnf, Record &literal) {
     return myInternalVar->GetNext(fetchme, cnf, literal);
 }
