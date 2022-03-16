@@ -8,11 +8,11 @@
 class SortedDBFile : public GenericDBFile {
     friend class DBFile;
 private:
-    File diskFile;
+    File file;
     Page bufferPage;
     off_t pageIndex;
     bool isWriteMode;
-    const char* out_path = nullptr;
+    const char* path = nullptr;
     int boundCalculated = 0;
     int lowerBound;
     int higherBound;
@@ -29,7 +29,7 @@ private:
     int Run (Record *left, Record *literal, Comparison *c);
 public:
     SortedDBFile();
-
+    ~SortedDBFile();
     int Create (const char *fpath, fType f_type, void *startup);
     int Open (const char *fpath);
     int Close ();

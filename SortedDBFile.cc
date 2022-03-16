@@ -11,6 +11,8 @@
 #include <pthread.h>
 #include <set>
 #include <string.h>
+#include <iostream>
+#include <fstream>
 
 
 SortedDBFile::SortedDBFile() {
@@ -18,10 +20,45 @@ SortedDBFile::SortedDBFile() {
     pageIndex = 0;
 }
 
+SortedDBFile::~SortedDBFile() {
+
+}
+
 int SortedDBFile::Create (const char *f_path, fType f_type, void *startup) {
+    // write in orderMaker and runLength
+    char meta_data_file_name[100];
+    sprintf(meta_data_file_name, "%s.metadata", f_path);
+    ofstream meta_data_file;
+    meta_data_file.open(meta_data_file_name, std::ios_base::app);
+    OrderMaker* orderMaker = nullptr;
+    int runLength = 0;
+    if(startup != nullptr) {
+        SortedInfo* sortedInfo = ((SortedInfo*)startup);
+        orderMaker = sortedInfo->myOrder;
+        runLength = sortedInfo->runLength;
+        meta_data_file << runLength << endl;
+        meta_data_file << orderMaker->numAtts << endl;
+        for (int i = 0; i < orderMaker->numAtts; i++) {
+            meta_data_file << orderMaker->whichAtts[i] << endl;
+            if (orderMaker->whichTypes[i] == Int)
+                meta_data_file << "Int" << endl;
+            else if (orderMaker->whichTypes[i] == Double)
+                meta_data_file << "Double" << endl;
+            else if(orderMaker->whichTypes[i] == String)
+                meta_data_file << "String" << endl;
+        }
+        // store orderMaker and runLength into subclass
+        
+        if(f_type == sorted) {
+            this->orderMaker = orderMaker;
+            this->runLength = runLength;
+        }
+    }
+    meta_data_file.close();
+
     cout<<"begin c Create"<<endl;
-    diskFile.Open(0, const_cast<char *>(f_path));
-    out_path = f_path;
+    file.Open(0, const_cast<char *>(f_path));
+    path = f_path;
     pageIndex = 0;
     isWriteMode = false;
     MoveFirst();
@@ -41,9 +78,41 @@ void SortedDBFile::Load (Schema &f_schema, const char *loadpath) {
 }
 
 int SortedDBFile::Open (const char *f_path) {
-    diskFile.Open(1, const_cast<char *>(f_path));
+    OrderMaker* orderMaker = new OrderMaker();
+    char meta_data_file_name[100];
+    sprintf (meta_data_file_name, "%s.metadata", f_path);
+    ifstream meta_data_file(meta_data_file_name);
+    string temp;
+    getline(meta_data_file, temp);
+    temp.clear();
+    getline(meta_data_file, temp);
+    int runLength = stoi(temp);
+    temp.clear();
+    getline(meta_data_file, temp);
+    orderMaker->numAtts = stoi(temp);
+    for(int i=0; i<orderMaker->numAtts; i++) {
+        temp.clear();
+        getline(meta_data_file, temp);
+        orderMaker->whichAtts[i] = stoi(temp);
+        temp.clear();
+        getline(meta_data_file, temp);
+        if(temp.compare("Int") == 0) {
+            orderMaker->whichTypes[i] = Int;
+        }
+        else if(temp.compare("Double") == 0) {
+            orderMaker->whichTypes[i] = Double;
+        }
+        else if(temp.compare("String") == 0) {
+            orderMaker->whichTypes[i] = String;
+        }
+    }
+    this->orderMaker = orderMaker;
+    this->runLength = runLength;
+    meta_data_file.close();
+
+    file.Open(1, const_cast<char *>(f_path));
     pageIndex = 0;
-    out_path = f_path;
+    path = f_path;
     isWriteMode = false;
     MoveFirst();
     return 1;
@@ -53,15 +122,15 @@ void SortedDBFile::MoveFirst () {
     addRecordsToSortedFile();
     pageIndex = 0;
     bufferPage.EmptyItOut();
-    if (diskFile.GetLength() > 0) {
-        diskFile.GetPage(&bufferPage, pageIndex);
+    if (file.GetLength() > 0) {
+        file.GetPage(&bufferPage, pageIndex);
     }
 }
 
 int SortedDBFile::Close () {
     addRecordsToSortedFile();
     bufferPage.EmptyItOut();
-    diskFile.Close();
+    file.Close();
     if(in != nullptr)
         delete in;
     if(out != nullptr)
@@ -74,7 +143,6 @@ void SortedDBFile::Add (Record &rec) {
     if(!isWriteMode) {
         cout << "Change from Read to Write Mode " << endl;
         isWriteMode = true;
-        //Construct arguement used for worker thread
         WorkerThreadArgs *workerThreadArgs = new WorkerThreadArgs;
         workerThreadArgs->in = in;
         workerThreadArgs->out = out;
@@ -88,21 +156,14 @@ void SortedDBFile::Add (Record &rec) {
 }
 
 int SortedDBFile::GetNext (Record &fetchme) {
-    //If file is writing, then write page into disk based file, redirect page ot first page
     addRecordsToSortedFile();
-    //If reach the end of page
-//    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-
     if (bufferPage.GetFirst(&fetchme) == 0) {
-//        cout<<diskFile.GetLength()<<endl;
         pageIndex++;
-        //If reach the end of file
-        if (pageIndex >= diskFile.GetLength() - 1) {
+        if (pageIndex >= file.GetLength() - 1) {
             return 0;
         }
-        //Else get next page
         bufferPage.EmptyItOut();
-        diskFile.GetPage(&bufferPage, pageIndex);
+        file.GetPage(&bufferPage, pageIndex);
         bufferPage.GetFirst(&fetchme);
     }
     return 1;
@@ -115,7 +176,7 @@ int SortedDBFile::GetNext (Record &fetchme, CNF &cnf, Record &literal) {
         for (int i = 0; i < orderMaker->numAtts; i++) {
             attSet.insert(orderMaker->whichAtts[i]);
         }
-        int global_lower = 0, global_higher = diskFile.GetLength() - 2;
+        int global_lower = 0, global_higher = file.GetLength() - 2;
         cout << "original lower bound: " << global_lower << endl;
         cout << "original higher bound: " << global_higher << endl;
         for (int i = 0; i < cnf.numAnds; i++) {
@@ -124,11 +185,11 @@ int SortedDBFile::GetNext (Record &fetchme, CNF &cnf, Record &literal) {
                 //calculate the lower bound and upper bound by Binary Search
                 // calculate the upper bound for a LessThan
                 if (cnf.orList[i][j].op == LessThan) {
-                    int left = 0, right = diskFile.GetLength() - 2;
+                    int left = 0, right = file.GetLength() - 2;
                     Record rec;
                     while (left < right) {
                         int mid = left + (right - left + 1) / 2;
-                        diskFile.GetPage(&bufferPage, mid);
+                        file.GetPage(&bufferPage, mid);
                         bufferPage.GetFirst(&rec);
                         int result = Run(&rec, &literal, &cnf.orList[i][j]);
                         if (result != 0) {
@@ -142,11 +203,11 @@ int SortedDBFile::GetNext (Record &fetchme, CNF &cnf, Record &literal) {
                 }
                     // calculate the lower bound for a UpperThan
                 else if (cnf.orList[i][j].op == GreaterThan) {
-                    int left = 0, right = diskFile.GetLength() - 2;
+                    int left = 0, right = file.GetLength() - 2;
                     Record rec;
                     while (left < right) {
                         int mid = left + (right - left) / 2;
-                        diskFile.GetPage(&bufferPage, mid);
+                        file.GetPage(&bufferPage, mid);
                         bufferPage.GetFirst(&rec);
                         int result = Run(&rec, &literal, &cnf.orList[i][j]);
                         if (result != 0) {
@@ -180,73 +241,6 @@ int SortedDBFile::GetNext (Record &fetchme, CNF &cnf, Record &literal) {
     }
     return 0;
 }
-
-void SortedDBFile::addRecordsToSortedFile(){
-    if(isWriteMode){
-        boundCalculated = 0;
-        isWriteMode = false;
-        in->ShutDown();
-
-        DBFile mergedFile;
-        mergedFile.Create("mergedFile.bin", heap, nullptr);
-
-        this->MoveFirst();
-        Record left;
-        Record right;
-        ComparisonEngine comparisonEngine;
-        int successLeft = out->Remove(&left);
-        int successRight = this->GetNext(right);
-        while(successLeft && successRight){
-            if (comparisonEngine.Compare(&left, &right, orderMaker) < 0){
-                cout << "Removded From Pipe" << endl;
-                mergedFile.Add(left);
-                successLeft = out->Remove(&left);
-            }
-            else{
-                mergedFile.Add(right);
-                successRight = this->GetNext(right);
-            }
-        }
-        while(successLeft){
-            cout << "Removded From Pipe" << endl;
-            mergedFile.Add(left);
-            successLeft = out->Remove(&left);
-        }
-        while(successRight){
-            mergedFile.Add(right);
-            successRight = this->GetNext(right);
-        }
-        if(thread!= nullptr) {
-            pthread_join (*thread, NULL);
-            delete thread;
-        }
-        mergedFile.Close();
-        diskFile.Close();
-        remove(out_path);
-        rename("mergedFile.bin", out_path);
-    }
-}
-
-//void* DBFileSorted::consumer(void *arg2) {
-//    cout<< "begin Consumer Thread" << endl;
-//    ThreadArg* arg = (ThreadArg *)arg2;
-//    char bigQPath[100];
-//    sprintf(bigQPath, "%s.bigq", arg->out_path);
-////    cout<< "=====bigQPath" << bigQPath << endl;
-//    DBFile dbFileHeap;
-//    cout<< "1" << endl;
-//    dbFileHeap.Create(bigQPath, heap, nullptr);
-//    cout<< "2" << endl;
-//    Record rec;
-//    while(arg->out->Remove(&rec)){
-//        cout<< "5" << endl;
-//        dbFileHeap.Add(rec);
-//    }
-//    cout<< "3" << endl;
-//    dbFileHeap.Close();
-//    cout<< "4" << endl;
-//    cout<< "end Consumer Thread" << endl;
-//}
 
 int SortedDBFile :: Run (Record *left, Record *literal, Comparison *c) {
 
@@ -342,5 +336,50 @@ int SortedDBFile :: Run (Record *left, Record *literal, Comparison *c) {
             }
             break;
     }
+}
 
+
+void SortedDBFile::addRecordsToSortedFile() {
+    if(isWriteMode){
+        boundCalculated = 0;
+        isWriteMode = false;
+        in->ShutDown();
+
+        DBFile mergedFile;
+        mergedFile.Create("mergedFile.bin", heap, nullptr);
+
+        this->MoveFirst();
+        Record left;
+        Record right;
+        ComparisonEngine comparisonEngine;
+        int successLeft = out->Remove(&left);
+        int successRight = this->GetNext(right);
+        while(successLeft && successRight){
+            if (comparisonEngine.Compare(&left, &right, orderMaker) < 0) {
+                cout << "Removded From Pipe" << endl;
+                mergedFile.Add(left);
+                successLeft = out->Remove(&left);
+            } else {
+                mergedFile.Add(right);
+                successRight = this->GetNext(right);
+            }
+        }
+        while(successLeft) {
+            cout << "Removded From Pipe" << endl;
+            mergedFile.Add(left);
+            successLeft = out->Remove(&left);
+        }
+        while(successRight) {
+            mergedFile.Add(right);
+            successRight = this->GetNext(right);
+        }
+        if(thread!= nullptr) {
+            pthread_join (*thread, NULL);
+            delete thread;
+        }
+        mergedFile.Close();
+        file.Close();
+        remove(path);
+        rename("mergedFile.bin", path);
+    }
 }

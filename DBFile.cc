@@ -10,7 +10,6 @@
 #include "Defs.h"
 #include <iostream>
 #include <fstream>
-// stub file .. replace it with your own DBFile.cc
 
 DBFile::DBFile () {
 
@@ -18,57 +17,25 @@ DBFile::DBFile () {
 
 int DBFile::Create (const char *f_path, fType f_type, void *startup) {
 //    cout<< "DBFile Create" << endl;
-    char f_meta_name[100];
-    sprintf (f_meta_name, "%s.meta", f_path);
-    cout<<"meta data in "<<f_meta_name<<endl;
-    ofstream f_meta;
-    f_meta.open(f_meta_name);
-    OrderMaker* orderMaker = nullptr;
-    int runLength = 0;
+    char meta_data_file_name[100];
+    sprintf(meta_data_file_name, "%s.metadata", f_path);
+    ofstream meta_data_file;
+    meta_data_file.open(meta_data_file_name);
     // write in file type
-    if(f_type == heap){
-        f_meta << "heap" << endl;
+    if(f_type == heap) {
+        meta_data_file << "heap" << endl;
         myInernalVar = new HeapDBFile();
     }
-    else if(f_type==sorted){
-        f_meta << "sorted"<< endl;
+    else if(f_type == sorted) {
+        meta_data_file << "sorted"<< endl;
         myInernalVar = new SortedDBFile();
     }
-    else if(f_type==tree){
-        f_meta << "tree"<< endl;
-    }
-    // write in orderMaker and runLength
-    if(startup!= nullptr) {
-        SortedInfo* sortedInfo = ((SortedInfo*)startup);
-        orderMaker = sortedInfo->myOrder;
-        runLength = sortedInfo->runLength;
-        f_meta << runLength << endl;
-        f_meta << orderMaker->numAtts << endl;
-        for (int i = 0; i < orderMaker->numAtts; i++) {
-            f_meta << orderMaker->whichAtts[i] << endl;
-            if (orderMaker->whichTypes[i] == Int)
-                f_meta << "Int" << endl;
-            else if (orderMaker->whichTypes[i] == Double)
-                f_meta << "Double" << endl;
-            else if(orderMaker->whichTypes[i] == String)
-                f_meta << "String" << endl;
-        }
-        // store orderMaker and runLength into subclass
-        if(f_type == heap){
+    else if(f_type == tree) {
 
-        }
-        else if(f_type==sorted){
-            ((SortedDBFile*)myInernalVar)->orderMaker = orderMaker;
-            ((SortedDBFile*)myInernalVar)->runLength = runLength;
-        }
-        else if(f_type==tree){
-
-        }
     }
-    f_meta.close();
+    meta_data_file.close();
     int res = myInernalVar->Create(f_path, f_type, startup);
     return res;
-//    cout<< "end DBFile Create" << endl;
 }
 
 void DBFile::Load (Schema &f_schema, const char *loadpath) {
@@ -76,48 +43,22 @@ void DBFile::Load (Schema &f_schema, const char *loadpath) {
 }
 
 int DBFile::Open (const char *f_path) {
-    OrderMaker* orderMaker = new OrderMaker();
-    char f_meta_name[100];
-    sprintf (f_meta_name, "%s.meta", f_path);
-    ifstream f_meta(f_meta_name);
+    char meta_data_file_name[100];
+    sprintf (meta_data_file_name, "%s.metadata", f_path);
+    ifstream meta_data_file(meta_data_file_name);
 
     string s;
-    getline(f_meta, s);
-    if(s.compare("heap")==0){
+    getline(meta_data_file, s);
+    if(s.compare("heap") == 0) {
         myInernalVar = new HeapDBFile();
     }
-    else if(s.compare("sorted")==0){
+    else if(s.compare("sorted") == 0) {
         myInernalVar = new SortedDBFile();
-        string temp;
-        getline(f_meta, temp);
-        int runLength = stoi(temp);
-        temp.clear();
-        getline(f_meta, temp);
-        orderMaker->numAtts = stoi(temp);
-        for(int i=0; i<orderMaker->numAtts; i++){
-            temp.clear();
-            getline(f_meta, temp);
-            orderMaker->whichAtts[i] = stoi(temp);
-            temp.clear();
-            getline(f_meta, temp);
-            if(temp.compare("Int")==0){
-                orderMaker->whichTypes[i] = Int;
-            }
-            else if(temp.compare("Double")==0){
-                orderMaker->whichTypes[i] = Double;
-            }
-            else if(temp.compare("String")==0){
-                orderMaker->whichTypes[i] = String;
-            }
-        }
-        ((SortedDBFile*)myInernalVar)->orderMaker = orderMaker;
-        ((SortedDBFile*)myInernalVar)->runLength = runLength;
-        orderMaker->Print();
     }
     else if(s.compare("tree")==0){
 
     }
-    f_meta.close();
+    meta_data_file.close();
     int res = myInernalVar->Open(f_path);
     return res;
 }

@@ -88,4 +88,5 @@ clean:
 	rm -f lex.yy.c
 	rm -f y.tab.h
 	rm -f *.bin
-	rm -rf *.meta
+	rm -rf *.metadata
+	rm -rf *.bigq
