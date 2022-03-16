@@ -24,22 +24,22 @@ int DBFile::Create (const char *f_path, fType f_type, void *startup) {
     // write in file type
     if(f_type == heap) {
         meta_data_file << "heap" << endl;
-        myInernalVar = new HeapDBFile();
+        myInternalVar = new HeapDBFile();
     }
     else if(f_type == sorted) {
         meta_data_file << "sorted"<< endl;
-        myInernalVar = new SortedDBFile();
+        myInternalVar = new SortedDBFile();
     }
     else if(f_type == tree) {
 
     }
     meta_data_file.close();
-    int res = myInernalVar->Create(f_path, f_type, startup);
+    int res = myInternalVar->Create(f_path, f_type, startup);
     return res;
 }
 
 void DBFile::Load (Schema &f_schema, const char *loadpath) {
-    myInernalVar->Load(f_schema, loadpath);
+    myInternalVar->Load(f_schema, loadpath);
 }
 
 int DBFile::Open (const char *f_path) {
@@ -50,37 +50,37 @@ int DBFile::Open (const char *f_path) {
     string s;
     getline(meta_data_file, s);
     if(s.compare("heap") == 0) {
-        myInernalVar = new HeapDBFile();
+        myInternalVar = new HeapDBFile();
     }
     else if(s.compare("sorted") == 0) {
-        myInernalVar = new SortedDBFile();
+        myInternalVar = new SortedDBFile();
     }
     else if(s.compare("tree")==0){
 
     }
     meta_data_file.close();
-    int res = myInernalVar->Open(f_path);
+    int res = myInternalVar->Open(f_path);
     return res;
 }
 
 void DBFile::MoveFirst () {
-    myInernalVar->MoveFirst();
+    myInternalVar->MoveFirst();
 }
 
 int DBFile::Close () {
-    int res = myInernalVar->Close();
-    delete myInernalVar;
+    int res = myInternalVar->Close();
+    delete myInternalVar;
     return res;
 }
 
 void DBFile::Add (Record &rec) {
-    myInernalVar->Add(rec);
+    myInternalVar->Add(rec);
 }
 
 int DBFile::GetNext (Record &fetchme) {
-    return myInernalVar->GetNext(fetchme);
+    return myInternalVar->GetNext(fetchme);
 }
 
 int DBFile::GetNext (Record &fetchme, CNF &cnf, Record &literal) {
-    return myInernalVar->GetNext(fetchme, cnf, literal);
+    return myInternalVar->GetNext(fetchme, cnf, literal);
 }

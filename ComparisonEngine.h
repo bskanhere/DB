@@ -1,5 +1,5 @@
-#ifndef _ENGINE
-#define _ENGINE
+#ifndef COMPARISON_ENGINE_H
+#define COMPARISON_ENGINE_H
 
 
 #include "Record.h"
