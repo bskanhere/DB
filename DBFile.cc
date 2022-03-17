@@ -20,12 +20,10 @@ DBFile::~DBFile() {
 }
 
 int DBFile::Create(const char *f_path, fType f_type, void *startup) {
-//    cout<< "DBFile Create" << endl;
-    char meta_data_file_name[100];
+    char meta_data_file_name[100];      //Metadata file to store the Type of File
     sprintf(meta_data_file_name, "%s.metadata", f_path);
     ofstream meta_data_file;
     meta_data_file.open(meta_data_file_name);
-    // write in file type
     if(f_type == heap) {
         meta_data_file << "heap" << endl;
         myInternalVar = new HeapDBFile();
@@ -47,7 +45,7 @@ void DBFile::Load(Schema &f_schema, const char *loadpath) {
 }
 
 int DBFile::Open(const char *f_path) {
-    char meta_data_file_name[100];
+    char meta_data_file_name[100];      //Using Metadata to get Type to Open respective DBFile
     sprintf(meta_data_file_name, "%s.metadata", f_path);
     ifstream meta_data_file(meta_data_file_name);
 

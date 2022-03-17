@@ -18,11 +18,14 @@ test.out: Record.o Comparison.o ComparisonEngine.o Schema.o File.o BigQ.o DBFile
 main: Record.o Comparison.o ComparisonEngine.o Schema.o File.o HeapDBFile.o y.tab.o lex.yy.o main.o
 	$(CC) -o main Record.o Comparison.o ComparisonEngine.o Schema.o File.o HeapDBFile.o y.tab.o lex.yy.o main.o -lfl
 
-gtest1: Record.o Comparison.o ComparisonEngine.o Schema.o File.o HeapDBFile.o y.tab.o lex.yy.o gtest1.o
-	$(CC) -o gtest1 Record.o gtest1.o Comparison.o ComparisonEngine.o Schema.o File.o HeapDBFile.o y.tab.o lex.yy.o -lfl -l pthread -lgtest
+gtest.out: Record.o Comparison.o ComparisonEngine.o Schema.o BigQ.o File.o DBFile.o GenericDBFile.o HeapDBFile.o SortedDBFile.o y.tab.o lex.yy.o gtest.o Pipe.o
+	$(CC) -o gtest.out Record.o gtest.o Comparison.o ComparisonEngine.o Schema.o BigQ.o	 File.o DBFile.o GenericDBFile.o HeapDBFile.o SortedDBFile.o y.tab.o lex.yy.o Pipe.o -lfl -l pthread -lgtest
 
-gtest2_1: Record.o Comparison.o ComparisonEngine.o Schema.o File.o GenericDBFile.o HeapDBFile.o y.tab.o lex.yy.o gtest2_1.o Pipe.o
-	$(CC) -o gtest2_1 Record.o gtest2_1.o Comparison.o ComparisonEngine.o Schema.o File.o GenericDBFile.o HeapDBFile.o y.tab.o lex.yy.o Pipe.o -lfl -l pthread -lgtest
+gtest1.out: Record.o Comparison.o ComparisonEngine.o Schema.o File.o HeapDBFile.o y.tab.o lex.yy.o gtest1.o
+	$(CC) -o gtest1.out Record.o gtest1.o Comparison.o ComparisonEngine.o Schema.o File.o HeapDBFile.o y.tab.o lex.yy.o -lfl -l pthread -lgtest
+
+gtest2_1.out: Record.o Comparison.o ComparisonEngine.o Schema.o File.o GenericDBFile.o HeapDBFile.o y.tab.o lex.yy.o gtest2_1.o Pipe.o
+	$(CC) -o gtest2_1.out Record.o gtest2_1.o Comparison.o ComparisonEngine.o Schema.o File.o GenericDBFile.o HeapDBFile.o y.tab.o lex.yy.o Pipe.o -lfl -l pthread -lgtest
 
 test1.o: test1.cc
 	$(CC) -g -c test1.cc
@@ -30,6 +33,8 @@ test1.o: test1.cc
 test2_1.o: test2_1.cc
 	$(CC) -g -c test2_1.cc
 
+gtest.o:
+	$(CC) -g -c gtest.cc
 
 gtest1.o:
 	$(CC) -g -c gtest1.cc
