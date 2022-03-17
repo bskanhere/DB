@@ -1,17 +1,9 @@
 #ifndef HEAPDBFILE_H
 #define HEAPDBFILE_H
 
-#include "TwoWayList.h"
-#include "Record.h"
-#include "Schema.h"
-#include "File.h"
-#include "Comparison.h"
-#include "ComparisonEngine.h"
+#include "DBFile.h"
 
-typedef enum {heap, sorted, tree} fType;
-
-
-class HeapDBFile {
+class HeapDBFile : public GenericDBFile {
 	File *file;
 	Page *writePage, *readPage;
 	bool isWriteMode;

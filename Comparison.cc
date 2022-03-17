@@ -197,6 +197,7 @@ void CNF :: Print () {
 	}
 }
 
+
 // this is a helper routine that writes out another field for the literal record and its schema
 void AddLitToFile (int &numFieldsInLiteral, FILE *outRecFile, FILE *outSchemaFile, char *value, Type myType) {
 

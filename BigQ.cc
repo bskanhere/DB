@@ -12,6 +12,9 @@ BigQ :: BigQ (Pipe &in, Pipe &out, OrderMaker &sortorder, int runlen) {
 }
 
 void* TPMMSAlgo(void* arg) {
+    
+    cout << "Begin Worker Thread" << endl;
+
     WorkerThreadArgs* workerThreadArgs = (WorkerThreadArgs*) arg;
     priority_queue<Run*, vector<Run*>, RunComparator> runHeap(workerThreadArgs->order);
     priority_queue<Record*, vector<Record*>, RecordComparator> recordHeap (workerThreadArgs->order);
@@ -36,13 +39,13 @@ void* TPMMSAlgo(void* arg) {
                 bufferPage.EmptyItOut();
                 int startIndex = pageIndex;
                 while (!recordHeap.empty()) {
-                    Record* tempRecord = new Record;
-                    tempRecord->Copy(recordHeap.top());
+                    Record* tempRecord1 = new Record;
+                    tempRecord1->Copy(recordHeap.top());
                     recordHeap.pop();
-                    if (bufferPage.Append(tempRecord) == 0) {
+                    if (bufferPage.Append(tempRecord1) == 0) {
                         tpmmsTempFile.AddPage(&bufferPage, pageIndex++);
                         bufferPage.EmptyItOut();
-                        bufferPage.Append(tempRecord);
+                        bufferPage.Append(tempRecord1);
                     }
                 }
                 tpmmsTempFile.AddPage(&bufferPage, pageIndex++);
@@ -85,8 +88,8 @@ void* TPMMSAlgo(void* arg) {
             runHeap.push(run);
         }
     }
-    tpmmsTempFile.Close();
     workerThreadArgs->out->ShutDown();
+    tpmmsTempFile.Close();
     return NULL;
 }
 
