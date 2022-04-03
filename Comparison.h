@@ -46,13 +46,13 @@ class OrderMaker {
 	friend class SortedDBFile;
 	friend class DBFile;
 	friend class DBFileTest;
-
-	int numAtts;
+	friend class RelOp;
 
 	int whichAtts[MAX_ANDS];
 	Type whichTypes[MAX_ANDS];
 
 public:
+	int numAtts;
 	
 	// creates an empty OrdermMaker
 	OrderMaker();
