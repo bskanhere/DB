@@ -2,10 +2,9 @@
 #define REL_OP_H
 
 #include "Pipe.h"
-#include "HeapDBFile.h"
+#include "DBFile.h"
 #include "Record.h"
 #include "Function.h"
-#include <vector>
 
 class RelationalOp {
 	public:
@@ -56,25 +55,20 @@ typedef struct {
 	int numAttsOutput;
 } ProjectArg;
 
-struct JoinData {
-    Pipe *leftInputPipe;
-    Pipe *rightInputPipe;
-    Pipe *outputPipe;
-    CNF *cnf;
-    Record *literal;
-    int runLength;
+class FixedSizeRecordBuffer {
+friend class Join;
+public:	
+	FixedSizeRecordBuffer(int runLength);
+	~FixedSizeRecordBuffer();
+private:
+  	Record* buffer;
+  	int numRecords;
+  	int size;
+  	int capacity;
+
+	bool Add (Record& addme);
+  	void Clear ();
 };
-
-void *JoinThreadMethod(void *threadData);
-
-void NestedBlockJoin(Pipe *leftInputPipe, Pipe *rightInputPipe, Pipe *outputPipe, int runLength);
-
-void LoadVectorFromBlock(vector<Record *> *loadMe, Page *block, int blockLength);
-
-void JoinUsingSortMerge(Pipe *leftInputPipe, Pipe *rightInputPipe, Pipe *outputPipe,
-                        OrderMaker *leftOrderMaker, OrderMaker *rightOrderMaker);
-
-void JoinTableBlocks(vector<Record *> *leftBlockRecords, vector<Record *> *rightBlockRecords, Pipe *outputPipe);
 
 class Join : public RelationalOp { 
 	private:
@@ -84,8 +78,31 @@ class Join : public RelationalOp {
 		void Run (Pipe &inPipeL, Pipe &inPipeR, Pipe &outPipe, CNF &selOp, Record &literal);
 		void WaitUntilDone ();
 		void Use_n_Pages (int n);
+		static void* Operate (void *arg); 
+		static void SortMergeJoin(Pipe* leftPipe, OrderMaker* leftOrderMaker, Pipe* rightPipe, OrderMaker* rightOrderMaker, Pipe* pout, CNF* selOp, Record* literal, int runLength);
+		static void NestedLoopJoin(Pipe* leftPipe, Pipe* rightPipe, Pipe* pout, CNF* selOp, Record* literal, int runLength);
+		static void JoinBufferWithFile(FixedSizeRecordBuffer& buffer, DBFile& file, Pipe& out, Record& literal, CNF& selOp);
+		static void PipeToFile(Pipe& inPipe, DBFile& outFile);
 	
 };
+
+typedef struct {
+	Pipe *inPipeL;
+	Pipe *inPipeR;
+	Pipe *outPipe;
+	CNF *selOp;
+	Record *literal;
+	int runLen;
+} JoinArg;
+
+void* JoinWorker (void* arg);
+
+void JoinWorker_AddMergedRecord(Record* leftRecord, Record* rightRecord, Pipe* pipe);
+
+void JoinWorker_Merge(JoinArg* joinArg, OrderMaker* leftOrder, OrderMaker* rightOrder);
+
+void JoinWorker_BlockNested(JoinArg* joinArg);
+
 
 class DuplicateRemoval : public RelationalOp {
 	private:
@@ -106,18 +123,6 @@ typedef struct {
 	int runLen;
 } DuplicateRemovalArg;
 
-struct SumData {
-    Pipe *inputPipe;
-    Pipe *outputPipe;
-    Function *computeMe;
-    int distinctFunc;
-};
-
-void *SumThreadMethod(void *threadData);
-
-void SumAll(Pipe *inPipe, Pipe *outPipe, Function *computeMe);
-
-void SumDistinct(Pipe *inPipe, Pipe *outPipe, Function *computeMe);
 
 class Sum : public RelationalOp {
     private:

@@ -11,11 +11,12 @@
 // than right, depending upon the OrderMaker
 int ComparisonEngine :: Compare(Record *left, Record *right, OrderMaker *orderUs) {
 
+	//cout<<"Entered"<<endl;
 	char *val1, *val2;
 
 	char *left_bits = left->GetBits();
 	char *right_bits = right->GetBits();
-
+	
 	for (int i = 0; i < orderUs->numAtts; i++) {
 		val1 = left_bits + ((int *) left_bits)[orderUs->whichAtts[i] + 1];
 		val2 = right_bits + ((int *) right_bits)[orderUs->whichAtts[i] + 1];
@@ -26,7 +27,7 @@ int ComparisonEngine :: Compare(Record *left, Record *right, OrderMaker *orderUs
 		
 		// now check the type and do the comparison
 		switch (orderUs->whichTypes[i]) {
-	
+			
 			// first case: we are dealing with integers
 			case Int:
 	
@@ -101,8 +102,7 @@ int ComparisonEngine :: Compare (Record *left, OrderMaker *order_left, Record *r
 			// cast the two bit strings to ints
 			val1Int = *((int *) val1);
 			val2Int = *((int *) val2);
-			cout << "In Comparison " << val1Int << " " << val2Int << endl;
-	
+			cout << "In Comparison" << val1Int << " " << val2Int << endl;
 			// and do the comparison
 			if (val1Int < val2Int) 
 				return -1;

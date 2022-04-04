@@ -35,8 +35,8 @@ int clear_pipe (Pipe &in_pipe, Schema *schema, Function &func, bool print) {
 	cout << " Sum: " << sum << endl;
 	return cnt;
 }
-int pipesz = 100; // buffer sz allowed for each pipe
-int buffsz = 100; // pages of memory allowed for operations
+int pipesz = 1000; // buffer sz allowed for each pipe
+int buffsz = 1000; // pages of memory allowed for operations
 
 SelectFile SF_ps, SF_p, SF_s, SF_o, SF_li, SF_c;
 DBFile dbf_ps, dbf_p, dbf_s, dbf_o, dbf_li, dbf_c;
@@ -141,21 +141,21 @@ void q2 () {
 // expected output: 9.24623e+07
 void q3 () {
 
-	char *pred_s = "(s_suppkey = s_suppkey)";
-	init_SF_s (pred_s, 100);
+	char *pred_s = "(ps_suppkey = ps_suppkey)";
+	init_SF_ps (pred_s, 100);
 
 	Sum T;
 		// _s (input pipe)
 		Pipe _out (1);
 		Function func;
-			char *str_sum = "(s_acctbal + (s_acctbal * 1.05))";
-			get_cnf (str_sum, s->schema (), func);
+			char *str_sum = "(ps_supplycost)";
+			get_cnf (str_sum, ps->schema (), func);
 			func.Print ();
 	T.Use_n_Pages (1);
-	SF_s.Run (dbf_s, _s, cnf_s, lit_s);
+	SF_ps.Run (dbf_ps, _s, cnf_ps, lit_ps);
 	T.Run (_s, _out, func);
 
-	SF_s.WaitUntilDone ();
+	SF_ps.WaitUntilDone ();
 	T.WaitUntilDone ();
 
 	Schema out_sch ("out_sch", 1, &DA);
@@ -181,12 +181,12 @@ void q4 () {
 	init_SF_ps (pred_ps, 100);
 
 	Join J;
-		// left _s
-		// right _ps
-		Pipe _s_ps (pipesz);
-		CNF cnf_p_ps;
-		Record lit_p_ps;
-		get_cnf ("(s_suppkey = ps_suppkey)", s->schema(), ps->schema(), cnf_p_ps, lit_p_ps);
+	// left _s
+	// right _ps
+	Pipe _s_ps (pipesz);
+	CNF cnf_p_ps;
+	Record lit_p_ps;
+	get_cnf ("(s_suppkey = ps_suppkey)", s->schema(), ps->schema(), cnf_p_ps, lit_p_ps);
 
 	int outAtts = sAtts + psAtts;
 	Attribute ps_supplycost = {"ps_supplycost", Double};
@@ -194,24 +194,26 @@ void q4 () {
 	Schema join_sch ("join_sch", outAtts, joinatt);
 
 	Sum T;
-		// _s (input pipe)
-		Pipe _out (1);
-		Function func;
-			char *str_sum = "(ps_supplycost)";
-			get_cnf (str_sum, &join_sch, func);
-			func.Print ();
+	// _s (input pipe)
+	Pipe _out (1);
+	Function func;
+	char *str_sum = "(ps_supplycost)";
+	get_cnf (str_sum, &join_sch, func);
+	func.Print ();
 	T.Use_n_Pages (1);
 
 	SF_ps.Run (dbf_ps, _ps, cnf_ps, lit_ps); // 161 recs qualified
 	J.Run (_s, _ps, _s_ps, cnf_p_ps, lit_p_ps);
 	T.Run (_s_ps, _out, func);
 
+	SF_s.WaitUntilDone ();
 	SF_ps.WaitUntilDone ();
 	J.WaitUntilDone ();
 	T.WaitUntilDone ();
 
 	Schema sum_sch ("sum_sch", 1, &DA);
 	int cnt = clear_pipe (_out, &sum_sch, true);
+
 	cout << " query4 returned " << cnt << " recs \n";
 }
 

@@ -13,15 +13,27 @@ BigQ :: BigQ (Pipe &in, Pipe &out, OrderMaker &sortorder, int runlen) {
 
 void* TPMMSAlgo(void* arg) {
     
-    cout << "Begin Worker Thread" << endl;
+    //cout << "Begin Worker Thread" << endl;
 
     WorkerThreadArgs* workerThreadArgs = (WorkerThreadArgs*) arg;
     priority_queue<Run*, vector<Run*>, RunComparator> runHeap(workerThreadArgs->order);
     priority_queue<Record*, vector<Record*>, RecordComparator> recordHeap (workerThreadArgs->order);
     vector<Record* > recBuff;
     
+	char randomString[8];
+    static const char alphaNum[] =
+        "0123456789"
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        "abcdefghijklmnopqrstuvwxyz";
+
+    for (int i = 0; i < 8; ++i) {
+        randomString[i] = alphaNum[rand() % (sizeof(alphaNum) - 1)];
+    }
+    randomString[8] = 0;
+    std::string fileName("tpmms");
+    fileName = fileName + randomString + ".bin";
     File tpmmsTempFile;
-    tpmmsTempFile.Open(0, "temp.bin"); //Disk based file for storing sorted Runs 
+    tpmmsTempFile.Open(0, const_cast<char*>(fileName.c_str())); //Disk based file for storing sorted Runs 
 
     Page bufferPage;
     int pageIndex = 0;
@@ -79,15 +91,17 @@ void* TPMMSAlgo(void* arg) {
         runHeap.push(run);
         recordHeap = priority_queue<Record*, vector<Record*>, RecordComparator> (workerThreadArgs->order);
     }
-
+    int count = 0;
     while (!runHeap.empty()) {//Phase 2 -  Merging Runs to Produce Sorted Records
         Run* run = runHeap.top();
         runHeap.pop();
         workerThreadArgs->out->Insert(run->currRecord);
+        count++;
         if (run->getNextRecord() == 1) {
             runHeap.push(run);
         }
     }
+    cout << "BigQ output - " << count << endl;
     workerThreadArgs->out->ShutDown();
     tpmmsTempFile.Close();
     return NULL;

@@ -69,6 +69,14 @@ public:
 	// prints the contents of the record; this requires
 	// that the schema also be given so that the record can be interpreted
 	void Print (Schema *mySchema);
+	
+	int GetNumAtts();
+
+	int GetLength() const;
+	
+    void MergeTheRecords (Record* left, Record* right);
+
+	void Write (FILE* file, Schema* mySchema);
 };
 
 #endif

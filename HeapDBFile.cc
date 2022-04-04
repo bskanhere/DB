@@ -89,7 +89,7 @@ int HeapDBFile::GetNext (Record &fetchme) {
             readPage->EmptyItOut();
             file->GetPage(readPage, readPageNumber++);
         }
-    }
+    } 
     if(readPage->GetFirst(&fetchme))
         return 1;
     if(readPageNumber < 0 || readPageNumber > file->GetLength()-2)

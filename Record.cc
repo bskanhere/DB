@@ -468,5 +468,68 @@ void Record :: Print (Schema *mySchema) {
 	cout << "\n";
 }
 
+int Record::GetNumAtts(){
+    return ((int*)bits)[1]/sizeof(int)-1;
+}
 
+int Record::GetLength() const{
+	return ((int*)bits)[0];
+}
+
+void Record::MergeTheRecords(Record* left, Record* right) {
+	int numAttsLeft = left->GetNumAtts();
+  	int numAttsRight = right->GetNumAtts();
+  	int* attsToKeep = new int[numAttsLeft+numAttsRight];
+  	for(int i=0; i<numAttsLeft; ++i){
+  		attsToKeep[i] = i;
+  	}
+
+  	for(int i=0; i<numAttsRight; ++i){
+  		attsToKeep[numAttsLeft+i] = i;
+  	}
+	MergeRecords (left, right, numAttsLeft, numAttsRight, attsToKeep, numAttsLeft+numAttsRight, numAttsLeft); // merge the left and the right record
+  	delete[] attsToKeep; // free attsToKeep
+}
+
+void Record::Write(FILE* file, Schema* mySchema) {
+
+  int n = mySchema->GetNumAtts();
+  Attribute *atts = mySchema->GetAtts();
+
+  // loop through all the attributes
+  for (int i = 0; i < n; i++) {
+    // use the i^th slot at the head of the record to get the
+    // offset to the correct attribute in the record
+    int pointer = ((int *) bits)[i + 1];
+
+    // here we determine the type, which given in the schema;
+    // depending on the type we then print out the contents
+    //fprintf(file, "[");
+
+    // first is integer
+    if (atts[i].myType == Int) {
+      int *myInt = (int *) &(bits[pointer]);
+      fprintf(file, "%d", *myInt);
+
+    // then is a double
+    } else if (atts[i].myType == Double) {
+      double *myDouble = (double *) &(bits[pointer]);
+      fprintf(file, "%f", *myDouble);
+
+    // then is a character string
+    } else if (atts[i].myType == String) {
+      char *myString = (char *) &(bits[pointer]);
+      fprintf(file, "%s", myString);
+    } 
+
+    //fprintf(file, "]");
+
+    // print out a comma as needed to make things pretty
+    // if (i != n - 1) {
+      fprintf(file, "|");
+    //}
+  }
+
+  fprintf(file, "\n");
+}
 

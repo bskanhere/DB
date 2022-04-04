@@ -48,10 +48,10 @@ class OrderMaker {
 	friend class DBFileTest;
 	friend class RelOp;
 
-	int whichAtts[MAX_ANDS];
 	Type whichTypes[MAX_ANDS];
 
 public:
+	int whichAtts[MAX_ANDS];
 	int numAtts;
 	
 	// creates an empty OrdermMaker
@@ -63,6 +63,7 @@ public:
 
 	// print to the screen
 	void Print ();
+	bool isEmpty ();
 };
 
 class Record;
