@@ -76,9 +76,9 @@ void SelectFile::Use_n_Pages(int runlen) {
 
 //Project
 typedef struct {
-	Pipe *inPipe;
-	Pipe *outPipe;
-	int *keepMe;
+	Pipe* inPipe;
+	Pipe* outPipe;
+	int* keepMe;
 	int numAttsInput;
 	int numAttsOutput;
 } ProjectWorkerArg;
@@ -118,10 +118,10 @@ void Project::Use_n_Pages(int n) {
 
 //Sum
 typedef struct {
-    Pipe *inputPipe;
-    Pipe *outputPipe;
-    Function *computeMe;
-}SumWorkerArg;
+    Pipe* inputPipe;
+    Pipe* outputPipe;
+    Function* computeMe;
+} SumWorkerArg;
 
 void* sumWorker(void* arg) {
     SumWorkerArg* workerArg = (SumWorkerArg*) arg;
@@ -147,7 +147,7 @@ void Sum::Run(Pipe &inPipe, Pipe &outPipe, Function &computeMe) {
     workerArg->outputPipe = &outPipe;
     workerArg->computeMe = &computeMe;
 
-    pthread_create(&workerThread, nullptr, sumWorker, (void*) workerArg);
+    pthread_create(&workerThread, NULL, sumWorker, (void*) workerArg);
 }
 
 void Sum::WaitUntilDone() {
@@ -156,6 +156,211 @@ void Sum::WaitUntilDone() {
 
 void Sum::Use_n_Pages(int n) {
 
+}
+
+//Join
+typedef struct {
+    Pipe* leftInputPipe;
+    Pipe* rightInputPipe;
+    Pipe* outputPipe;
+    CNF* cnf;
+    Record* literal;
+    int runLength;
+} JoinWorkerArg;
+
+void* joinWorker(void* arg) {
+    JoinWorkerArg *workerArg = (JoinWorkerArg *) arg;
+
+    OrderMaker orderMakerL, ordermakeR;
+    workerArg->cnf->GetSortOrders(orderMakerL, ordermakeR);
+
+    if (orderMakerL.isEmpty() || ordermakeR.isEmpty()) {
+        NestedBlockJoin(workerArg->leftInputPipe, workerArg->rightInputPipe, workerArg->outputPipe, workerArg->runLength);
+    } else {
+        Pipe sortedPipeL(DEFAULT_PIPE_SIZE), sortedPipeR(DEFAULT_PIPE_SIZE);
+        BigQ(*workerArg->leftInputPipe, sortedPipeL, orderMakerL, workerArg->runLength);
+        BigQ(*workerArg->rightInputPipe, sortedPipeR, ordermakeR, workerArg->runLength);
+        sortMerge(&sortedPipeL, &sortedPipeR, workerArg->outputPipe, &orderMakerL, &ordermakeR);
+    }
+
+    workerArg->outputPipe->ShutDown();
+}
+
+void Join::Run(Pipe &inPipeL, Pipe &inPipeR, Pipe &outPipe, CNF &selOp, Record &literal) {
+    JoinWorkerArg* workerArg = new JoinWorkerArg;
+
+    workerArg->leftInputPipe = &inPipeL;
+    workerArg->rightInputPipe = &inPipeR;
+    workerArg->outputPipe = &outPipe;
+    workerArg->cnf = &selOp;
+    workerArg->literal = &literal;
+    workerArg->runLength = this->runLen;
+
+    pthread_create(&workerThread, NULL, joinWorker, (void*) workerArg);
+}
+
+void NestedBlockJoin(Pipe *leftInputPipe, Pipe *rightInputPipe, Pipe *outputPipe, int runLength) {
+    // Create temporary heap DBFiles for left and right input pipe.
+    HeapDBFile leftDBFile;
+    HeapDBFile rightDBFile;
+
+    char *leftDBFileName = "tempLeftDBfile.bin";
+    char *rightDBFileName = "tempRightDBfile.bin";
+
+    leftDBFile.Create(leftDBFileName, heap, NULL);
+    rightDBFile.Create(rightDBFileName, heap, NULL);
+
+    // Add all left input pipe's records into DBfile.
+    Record temp;
+    while (leftInputPipe->Remove(&temp)) {
+        leftDBFile.Add(temp);
+    }
+    // Add all right input pipe's records into DBfile.
+    while (rightInputPipe->Remove(&temp)) {
+        rightDBFile.Add(temp);
+    }
+
+    // Nested join to merge all records from left DBFile and right DBFile.
+    Record leftDBFileRecord, rightDBFileRecord, mergedRecord;
+    // Create buffer page array to store current runs' records
+    Page *recordsBlock = new(std::nothrow) Page[runLength];
+    if (recordsBlock == NULL) {
+        exit(1);
+    }
+
+    leftDBFile.MoveFirst();
+    bool leftDBFileNotFullyConsumed = leftDBFile.GetNext(leftDBFileRecord);
+
+    while (leftDBFileNotFullyConsumed) {
+        int blockPageIndex = 0;
+
+        while (leftDBFileNotFullyConsumed) {
+            if (!recordsBlock[blockPageIndex].Append(&leftDBFileRecord)) {
+                if (blockPageIndex + 1 < runLength) {
+                    blockPageIndex++;
+                    recordsBlock[blockPageIndex].Append(&leftDBFileRecord);
+                } else {
+                    break;
+                }
+            }
+            leftDBFileNotFullyConsumed = leftDBFile.GetNext(leftDBFileRecord);
+        }
+        vector<Record *> leftBlockRecords;
+        LoadVectorFromBlock(&leftBlockRecords, recordsBlock, blockPageIndex);
+
+        rightDBFile.MoveFirst();
+        bool rightDBFileNotFullyConsumed = rightDBFile.GetNext(rightDBFileRecord);
+
+        while (rightDBFileNotFullyConsumed) {
+            blockPageIndex = 0;
+            while (rightDBFileNotFullyConsumed) {
+                if (!recordsBlock[blockPageIndex].Append(&rightDBFileRecord)) {
+                    if (blockPageIndex + 1 < runLength) {
+                        blockPageIndex++;
+                        recordsBlock[blockPageIndex].Append(&rightDBFileRecord);
+                    } else {
+                        break;
+                    }
+                }
+                rightDBFileNotFullyConsumed = rightDBFile.GetNext(rightDBFileRecord);
+            }
+            vector<Record *> rightBlockRecords;
+            LoadVectorFromBlock(&rightBlockRecords, recordsBlock, blockPageIndex);
+            // Join left block and right block of pages.
+            JoinTableBlocks(&leftBlockRecords, &rightBlockRecords, outputPipe);
+        }
+    }
+
+
+    // Delete both temporary files.
+    remove(leftDBFileName);
+    remove(rightDBFileName);
+}
+
+void LoadVectorFromBlock(vector<Record *> *loadMe, Page *block, int blockLength) {
+    Record *temp = new Record();
+    for (int i = 0; i <= blockLength; i++) {
+        while (block[i].GetFirst(temp)) {
+            loadMe->push_back(temp);
+            temp = new Record();
+        }
+    }
+}
+
+void JoinTableBlocks(vector<Record *> *leftBlockRecords, vector<Record *> *rightBlockRecords, Pipe *outputPipe) {
+    Record *mergedRecord = new Record();
+    for (Record *leftBlockRecord : *leftBlockRecords) {
+        for (Record *rightBlockRecord : *rightBlockRecords) {
+            mergedRecord->MergeTheRecords(leftBlockRecord, rightBlockRecord);
+            outputPipe->Insert(mergedRecord);
+        }
+    }
+}
+
+void sortMerge(Pipe *inPipeL, Pipe *inPipeR, Pipe *outPipe,
+                        OrderMaker *orderMakerL, OrderMaker *orderMakerR) {
+
+    Record recordL, recordR;
+    bool isLeft = inPipeL->Remove(&recordL);
+    bool isRight = inPipeR->Remove(&recordR);
+
+    ComparisonEngine comparisonEngine;
+
+    while (isLeft && isRight) {
+        int comparisonValue = comparisonEngine.Compare(&recordL, orderMakerL, &recordR, orderMakerR);
+        if (comparisonValue == 0) {
+            vector<Record*> recordsL, recordsR;
+            Record* tempLeft = new Record();
+            tempLeft->Consume(&recordL);
+            recordsL.push_back(tempLeft);
+
+            int index = 0;
+
+            while ((isLeft = inPipeL->Remove(&recordL)) &&
+                   comparisonEngine.Compare(recordsL[index], &recordL, orderMakerL) == 0) {
+                tempLeft = new Record();
+                tempLeft->Consume(&recordL);
+                recordsL.push_back(tempLeft);
+            }
+
+            Record *tempRight = new Record();
+            tempRight->Consume(&recordR);
+            recordsR.push_back(tempRight);
+            index = 0;
+
+            while ((isRight = inPipeR->Remove(&recordR)) &&
+                   comparisonEngine.Compare(recordsR[index++], &recordR, orderMakerR) == 0) {
+                tempRight = new Record();
+                tempRight->Consume(&recordR);
+                recordsR.push_back(tempRight);
+            }
+            Record mergedRecord;
+            for (Record *left : recordsL) {
+                for (Record *right : recordsR) {
+                    mergedRecord.MergeTheRecords(left, right);
+                    outPipe->Insert(&mergedRecord);
+                }
+            }
+        } else if (comparisonValue < 0) {
+            isLeft = inPipeL->Remove(&recordL);
+        } else {
+            isRight = inPipeR->Remove(&recordR);
+        }
+    }
+    while (isLeft) {
+        isLeft = inPipeL->Remove(&recordL);
+    }
+    while (isRight) {
+        isRight = inPipeR->Remove(&recordR);
+    }
+}
+
+void Join::WaitUntilDone () { 
+    pthread_join(workerThread, NULL);
+}
+    
+void Join::Use_n_Pages (int n) { 
+    this->runLen = n;
 }
 
 
@@ -338,378 +543,3 @@ void WriteOut::WaitUntilDone () {
 void WriteOut::Use_n_Pages (int n) { 
 
 }
-
-
-//Join
-
-void Join::Run(Pipe &inPipeL, Pipe &inPipeR, Pipe &outPipe, CNF &selOp, Record &literal) {
-    JoinData *my_data = new JoinData();
-
-    my_data->leftInputPipe = &inPipeL;
-    my_data->rightInputPipe = &inPipeR;
-    my_data->outputPipe = &outPipe;
-    my_data->cnf = &selOp;
-    my_data->literal = &literal;
-    my_data->runLength = this->runLen;
-
-    pthread_create(&workerThread, nullptr, JoinThreadMethod, (void *) my_data);
-}
-
-void *JoinThreadMethod(void *threadData) {
-    JoinData *my_data = (JoinData *) threadData;
-
-    OrderMaker leftOrderMaker, rightOrderMaker;
-    my_data->cnf->GetSortOrders(leftOrderMaker, rightOrderMaker);
-
-    if (leftOrderMaker.isEmpty() || rightOrderMaker.isEmpty()) {
-        NestedBlockJoin(my_data->leftInputPipe, my_data->rightInputPipe, my_data->outputPipe, my_data->runLength);
-    } else {
-        Pipe leftBigQOutputPipe(DEFAULT_PIPE_SIZE), rightBigQOutputPipe(DEFAULT_PIPE_SIZE);
-        BigQ(*my_data->leftInputPipe, leftBigQOutputPipe, leftOrderMaker, my_data->runLength);
-        BigQ(*my_data->rightInputPipe, rightBigQOutputPipe, rightOrderMaker, my_data->runLength);
-        JoinUsingSortMerge(&leftBigQOutputPipe, &rightBigQOutputPipe, my_data->outputPipe,
-                           &leftOrderMaker, &rightOrderMaker);
-    }
-
-    my_data->outputPipe->ShutDown();
-
-}
-
-void NestedBlockJoin(Pipe *leftInputPipe, Pipe *rightInputPipe, Pipe *outputPipe, int runLength) {
-    // Create temporary heap DBFiles for left and right input pipe.
-    HeapDBFile leftDBFile;
-    HeapDBFile rightDBFile;
-
-    char *leftDBFileName = "tempLeftDBfile.bin";
-    char *rightDBFileName = "tempRightDBfile.bin";
-
-    leftDBFile.Create(leftDBFileName, heap, NULL);
-    rightDBFile.Create(rightDBFileName, heap, NULL);
-
-    // Add all left input pipe's records into DBfile.
-    Record temp;
-    while (leftInputPipe->Remove(&temp)) {
-        leftDBFile.Add(temp);
-    }
-    // Add all right input pipe's records into DBfile.
-    while (rightInputPipe->Remove(&temp)) {
-        rightDBFile.Add(temp);
-    }
-
-    // Nested join to merge all records from left DBFile and right DBFile.
-    Record leftDBFileRecord, rightDBFileRecord, mergedRecord;
-    // Create buffer page array to store current runs' records
-    Page *recordsBlock = new(std::nothrow) Page[runLength];
-    if (recordsBlock == NULL) {
-        exit(1);
-    }
-
-    leftDBFile.MoveFirst();
-    bool leftDBFileNotFullyConsumed = leftDBFile.GetNext(leftDBFileRecord);
-
-    while (leftDBFileNotFullyConsumed) {
-        int blockPageIndex = 0;
-
-        while (leftDBFileNotFullyConsumed) {
-            if (!recordsBlock[blockPageIndex].Append(&leftDBFileRecord)) {
-                if (blockPageIndex + 1 < runLength) {
-                    blockPageIndex++;
-                    recordsBlock[blockPageIndex].Append(&leftDBFileRecord);
-                } else {
-                    break;
-                }
-            }
-            leftDBFileNotFullyConsumed = leftDBFile.GetNext(leftDBFileRecord);
-        }
-        vector<Record *> leftBlockRecords;
-        LoadVectorFromBlock(&leftBlockRecords, recordsBlock, blockPageIndex);
-
-        rightDBFile.MoveFirst();
-        bool rightDBFileNotFullyConsumed = rightDBFile.GetNext(rightDBFileRecord);
-
-        while (rightDBFileNotFullyConsumed) {
-            blockPageIndex = 0;
-            while (rightDBFileNotFullyConsumed) {
-                if (!recordsBlock[blockPageIndex].Append(&rightDBFileRecord)) {
-                    if (blockPageIndex + 1 < runLength) {
-                        blockPageIndex++;
-                        recordsBlock[blockPageIndex].Append(&rightDBFileRecord);
-                    } else {
-                        break;
-                    }
-                }
-                rightDBFileNotFullyConsumed = rightDBFile.GetNext(rightDBFileRecord);
-            }
-            vector<Record *> rightBlockRecords;
-            LoadVectorFromBlock(&rightBlockRecords, recordsBlock, blockPageIndex);
-            // Join left block and right block of pages.
-            JoinTableBlocks(&leftBlockRecords, &rightBlockRecords, outputPipe);
-        }
-    }
-
-
-    // Delete both temporary files.
-    remove(leftDBFileName);
-    remove(rightDBFileName);
-}
-
-void LoadVectorFromBlock(vector<Record *> *loadMe, Page *block, int blockLength) {
-    Record *temp = new Record();
-    for (int i = 0; i <= blockLength; i++) {
-        while (block[i].GetFirst(temp)) {
-            loadMe->push_back(temp);
-            temp = new Record();
-        }
-    }
-}
-
-void JoinTableBlocks(vector<Record *> *leftBlockRecords, vector<Record *> *rightBlockRecords, Pipe *outputPipe) {
-    Record *mergedRecord = new Record();
-    for (Record *leftBlockRecord : *leftBlockRecords) {
-        for (Record *rightBlockRecord : *rightBlockRecords) {
-            mergedRecord->MergeTheRecords(leftBlockRecord, rightBlockRecord);
-            outputPipe->Insert(mergedRecord);
-        }
-    }
-}
-
-void JoinUsingSortMerge(Pipe *leftInputPipe, Pipe *rightInputPipe, Pipe *outputPipe,
-                        OrderMaker *leftOrderMaker, OrderMaker *rightOrderMaker) {
-
-    int count = 0;
-    int val=0;
-    int l = 0;
-    int s = 1;
-    int countL = 0;
-    int countR = 0;
-    Record leftOutputPipeRecord, rightOutputPipeRecord;
-    bool leftOutputPipeNotFullyConsumed = leftInputPipe->Remove(&leftOutputPipeRecord);
-    bool rightOutputPipeNotFullyConsumed = rightInputPipe->Remove(&rightOutputPipeRecord);
-
-    ComparisonEngine comparisonEngine;
-    // While there is data in both the input pipes.
-    while (leftOutputPipeNotFullyConsumed && rightOutputPipeNotFullyConsumed) {
-        //cout << "In Sort Merge " << s++ << endl;
-        // Compare the left and right record.
-        int comparisonValue = comparisonEngine.Compare(&leftOutputPipeRecord, leftOrderMaker,
-                                                       &rightOutputPipeRecord, rightOrderMaker);
-        cout << comparisonValue << "Comparison" << endl;
-        if (comparisonValue == 0) {
-            vector<Record *> leftPipeRecords, rightPipeRecords;
-            Record *tempLeft = new Record();
-            tempLeft->Consume(&leftOutputPipeRecord);
-            leftPipeRecords.push_back(tempLeft);
-
-            int index = 0;
-            countL = 1;
-            l++;
-            while ((leftOutputPipeNotFullyConsumed = leftInputPipe->Remove(&leftOutputPipeRecord)) &&
-                   comparisonEngine.Compare(leftPipeRecords[index], &leftOutputPipeRecord, leftOrderMaker) == 0) {
-                tempLeft = new Record();
-                tempLeft->Consume(&leftOutputPipeRecord);
-                leftPipeRecords.push_back(tempLeft);
-                countL++;
-            }
-
-            Record *tempRight = new Record();
-            tempRight->Consume(&rightOutputPipeRecord);
-            rightPipeRecords.push_back(tempRight);
-            countR = 1;
-            index = 0;
-            while ((rightOutputPipeNotFullyConsumed = rightInputPipe->Remove(&rightOutputPipeRecord)) &&
-                   comparisonEngine.Compare(rightPipeRecords[index++], &rightOutputPipeRecord, rightOrderMaker) == 0) {
-                tempRight = new Record();
-                tempRight->Consume(&rightOutputPipeRecord);
-                rightPipeRecords.push_back(tempRight);
-                countR++;
-            }
-            val += countL * countR;
-            Record mergedRecord;
-            for (Record *leftPipeRecord : leftPipeRecords) {
-                for (Record *rightPipeRecord : rightPipeRecords) {
-                    mergedRecord.MergeTheRecords(leftPipeRecord, rightPipeRecord);
-                    outputPipe->Insert(&mergedRecord);
-                    count++;
-                }
-            }
-            cout << l << " L " << countL << "Left " << countR << " Right " << val << " Val " << count <<" count" << endl;
-        } else if (comparisonValue < 0) {
-            leftOutputPipeNotFullyConsumed = leftInputPipe->Remove(&leftOutputPipeRecord);
-            cout << "Removing Left" << endl;
-        } else {
-            rightOutputPipeNotFullyConsumed = rightInputPipe->Remove(&rightOutputPipeRecord);
-            //cout << "Removing Right" << endl;
-        }
-    }
-    while (leftOutputPipeNotFullyConsumed) {
-        leftOutputPipeNotFullyConsumed = leftInputPipe->Remove(&leftOutputPipeRecord);
-    }
-    while (rightOutputPipeNotFullyConsumed) {
-        rightOutputPipeNotFullyConsumed = rightInputPipe->Remove(&rightOutputPipeRecord);
-    }
-    cout << "Count " << count << endl;
-}
-
-void Join::WaitUntilDone () { 
-    pthread_join(workerThread, NULL);
-}
-    
-void Join::Use_n_Pages (int n) { 
-    this->runLen = n;
-}
-
-
-// void generateRandomString(char *s, int len) {
-//     static const char alphaNum[] =
-//         "0123456789"
-//         "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-//         "abcdefghijklmnopqrstuvwxyz";
-
-//     for (int i = 0; i < len; ++i) {
-//         s[i] = alphaNum[rand() % (sizeof(alphaNum) - 1)];
-//     }
-//     s[len] = 0;
-// }
-
-// void* Join::Operate (void *arg) {
-// 	//RelationalOpThreadMemberHolder *params = (RelationalOpThreadMemberHolder*) arg; // parse thread params
-// 	JoinArg* params = (JoinArg*) arg;
-//     OrderMaker leftOrderMaker, rightOrderMaker; // left and right ordermaker
-// 	if (params->selOp->GetSortOrders(leftOrderMaker, rightOrderMaker)){ // if an acceptable ordering exists
-// 		SortMergeJoin(params->inPipeL, &leftOrderMaker, params->inPipeR, &rightOrderMaker, params->outPipe, params->selOp, params->literal, params->runLen); // the perform sort merge join
-//         cout<<"Done with Merge"<<endl;
-//     } else{
-// 		NestedLoopJoin(params->inPipeL, params->inPipeR, params->outPipe, params->selOp, params->literal, params->runLen); // else perform nested loop join
-// 	}
-//     cout<<"Shutting Down Pipe"<<endl;
-// 	params->outPipe->ShutDown(); // shutdown output pipe
-// }
-
-// void Join::Run (Pipe &inPipeL, Pipe &inPipeR, Pipe &outPipe, CNF &selOp, Record &literal) {
-// 	//RelationalOpThreadMemberHolder *params = new RelationalOpThreadMemberHolder(NULL, &inPipeL, NULL, &outPipe, NULL, &selOp, &literal, 0, 0, NULL, this->runLength, NULL, NULL, &inPipeR); // init thread params
-// 	JoinArg* joinArg = new JoinArg;
-//     joinArg->inPipeL = &inPipeL;
-//     joinArg->inPipeR = &inPipeR;
-//     joinArg->outPipe = &outPipe;
-//     joinArg->selOp = &selOp;
-//     joinArg->literal = &literal;
-//     joinArg->runLen = this->runLen;
-//     pthread_create(&workerThread, NULL, Operate, (void*) joinArg); // create thread
-// }
-
-// void Join::SortMergeJoin(Pipe* leftPipe, OrderMaker* leftOrderMaker, Pipe* rightPipe, OrderMaker* rightOrderMaker, Pipe* outPipe, CNF* selOp, Record* literal, int runLength) {
-//     cout << "In Sorted"<<endl;
-// 	ComparisonEngine comparisonEngine;
-// 	Pipe leftSortedPipe(PIPE_SIZE), rightSortedPipe(PIPE_SIZE);
-// 	BigQ leftBigQ(*leftPipe, leftSortedPipe, *leftOrderMaker, runLength), rightBigQ(*rightPipe, rightSortedPipe, *rightOrderMaker, runLength); // start BigQ to get the records in sorted order
-// 	Record recordFromLeft, recordFromRight, mergedRecord, previousRecord;
-// 	FixedSizeRecordBuffer recordBuffer(runLength);
-// 	bool leftNotEmpty = leftSortedPipe.Remove(&recordFromLeft), rightNotEmpty = rightSortedPipe.Remove(&recordFromRight);
-
-// 	while(leftNotEmpty && rightNotEmpty) { // while there are records in both the sorted pipes
-// 		//cout<<"In Step"<<endl;
-//         int comparisonStatusForPipes = comparisonEngine.Compare(&recordFromLeft, leftOrderMaker, &recordFromRight, rightOrderMaker); // compare records based on respective ordermakers
-		
-// 		if (comparisonStatusForPipes<0){  // if left is smaller than right
-// 			leftNotEmpty = leftSortedPipe.Remove(&recordFromLeft); // then advance left
-// 		} else if (comparisonStatusForPipes>0){ // if right is smaller than left
-// 			rightNotEmpty = rightSortedPipe.Remove(&recordFromRight); // advance right
-// 		} else { // if left and right are equal
-// 			//cout<<"In Merge"<<endl;
-//             recordBuffer.Clear(); // clear buffer
-// 			for(previousRecord.Consume(&recordFromLeft); (leftNotEmpty=leftSortedPipe.Remove(&recordFromLeft)) && comparisonEngine.Compare(&previousRecord, &recordFromLeft, leftOrderMaker)==0; previousRecord.Consume(&recordFromLeft)){
-// 	  			recordBuffer.Add(previousRecord); // accumulate records of the same value
-// 	  		}
-// 	  		recordBuffer.Add(previousRecord); // add the last record
-// 	  		int comparisonStatusForBufferAndPipe;
-// 			do { // Join records from the buffer one by one with the head of the pipe until the records from the buffer match with the head of the pipe
-// 			  	for (Record *recordFromBuffer=recordBuffer.buffer; recordFromBuffer!=recordBuffer.buffer+(recordBuffer.numRecords); recordFromBuffer++) {
-// 			  		if (comparisonEngine.Compare(recordFromBuffer, &recordFromRight, literal, selOp)) {   // if they match
-// 			  			mergedRecord.MergeTheRecords(recordFromBuffer, &recordFromRight); // concatenates left and right by setting up attsToKeep
-// 			  			outPipe->Insert(&mergedRecord);
-//                         //cout<<"Record Inserted"<<endl;
-// 			  		}
-// 			  	}
-// 			  	rightNotEmpty = rightSortedPipe.Remove(&recordFromRight);
-// 			  	comparisonStatusForBufferAndPipe = comparisonEngine.Compare(recordBuffer.buffer, leftOrderMaker, &recordFromRight, rightOrderMaker);
-// 	  		} while (rightNotEmpty && comparisonStatusForBufferAndPipe==0);    // read all records from right pipe with equal value
-// 		}
-// 	}
-//     while(leftNotEmpty){
-//         leftNotEmpty = leftSortedPipe.Remove(&recordFromLeft);
-//     }
-//     while(rightNotEmpty){
-//         rightNotEmpty = rightSortedPipe.Remove(&recordFromRight);
-//     }
-// }
-
-// void Join::NestedLoopJoin(Pipe* leftPipe, Pipe* rightPipe, Pipe* outPipe, CNF* selOp, Record* literal, int runLength) {
-// 	DBFile rightFile;
-// 	PipeToFile(*rightPipe, rightFile);
-// 	FixedSizeRecordBuffer leftBuffer(runLength);
-
-// 	Record recordFromLeft;
-// 	while(leftPipe->Remove(&recordFromLeft)){
-// 		if (!leftBuffer.Add(recordFromLeft)) {  // if buffer is full
-// 			JoinBufferWithFile(leftBuffer, rightFile, *outPipe, *literal, *selOp); // join records from buffer and right file
-// 			leftBuffer.Clear(); // clear buffer
-// 			leftBuffer.Add(recordFromLeft); // add this record now
-// 		}
-// 	}
-// 	JoinBufferWithFile(leftBuffer, rightFile, *outPipe, *literal, *selOp); // join records from buffer and right file
-// 	rightFile.Close(); // close rightFile
-// }
-
-// void Join::JoinBufferWithFile(FixedSizeRecordBuffer& recordBuffer, DBFile& file, Pipe& out, Record& literal, CNF& selOp) {
-// 	ComparisonEngine cmp;
-// 	Record merged;
-
-// 	Record recordFromFile;
-// 	file.MoveFirst();
-// 	while(file.GetNext(recordFromFile)){
-// 		for (Record *recordFromBuffer=recordBuffer.buffer; recordFromBuffer!=recordBuffer.buffer+(recordBuffer.numRecords); recordFromBuffer++) {
-// 			if (cmp.Compare(recordFromBuffer, &recordFromFile, &literal, &selOp)) {
-// 				merged.MergeTheRecords(recordFromBuffer, &recordFromFile); // concatenates left and right by setting up attsToKeep
-// 				out.Insert(&merged);
-// 			}
-// 		}
-// 	}
-// }
-
-// void Join::PipeToFile(Pipe& inPipe, DBFile& outFile) {
-// 	int randomStringLen = 8;
-// 	char randomString[randomStringLen];
-// 	generateRandomString(randomString, randomStringLen); // generate a randomString of length=randomStringLens
-
-// 	std::string fileName("join");
-// 	fileName = fileName + randomString + ".bin"; // filename
-// 	outFile.Create((char*)fileName.c_str(), heap, NULL);
-// 	Record currentRecord;
-// 	while (inPipe.Remove(&currentRecord)){
-// 		outFile.Add(currentRecord); // add the record to the file
-// 	}
-// }
-
-// bool FixedSizeRecordBuffer::Add (Record& addme) {
-// 	if((size+=addme.GetLength())>capacity){ // if addMe cannot fit in the buffer
-// 		return 0; // dont add to the buffer
-//   	}
-// 	buffer[numRecords++].Consume(&addme); // else add to the buffer
-// 	return 1;
-// }
-
-// void FixedSizeRecordBuffer::Clear () {
-// 	size = 0;
-// 	numRecords = 0;
-// }
-
-// FixedSizeRecordBuffer::FixedSizeRecordBuffer(int runLength) {
-// 	numRecords = 0;
-// 	size = 0;
-// 	capacity = PAGE_SIZE*runLength; // capacty = page size * runLength
-// 	buffer = new Record[PAGE_SIZE*runLength/sizeof(Record*)]; // allocate [(page size * runLength) / size of the record pointer ] bytes for the buffer
-// }
-
-// FixedSizeRecordBuffer::~FixedSizeRecordBuffer() {
-// 	delete[] buffer; // free the buffer
-// }

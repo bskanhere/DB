@@ -57,22 +57,11 @@ class Sum : public RelationalOp {
 	void Use_n_Pages (int n);
 };
 
-struct JoinData {
-    Pipe *leftInputPipe;
-    Pipe *rightInputPipe;
-    Pipe *outputPipe;
-    CNF *cnf;
-    Record *literal;
-    int runLength;
-};
-
-void *JoinThreadMethod(void *threadData);
-
 void NestedBlockJoin(Pipe *leftInputPipe, Pipe *rightInputPipe, Pipe *outputPipe, int runLength);
 
 void LoadVectorFromBlock(vector<Record *> *loadMe, Page *block, int blockLength);
 
-void JoinUsingSortMerge(Pipe *leftInputPipe, Pipe *rightInputPipe, Pipe *outputPipe,
+void sortMerge(Pipe *leftInputPipe, Pipe *rightInputPipe, Pipe *outputPipe,
                         OrderMaker *leftOrderMaker, OrderMaker *rightOrderMaker);
 
 void JoinTableBlocks(vector<Record *> *leftBlockRecords, vector<Record *> *rightBlockRecords, Pipe *outputPipe);

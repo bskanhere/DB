@@ -91,17 +91,15 @@ void* TPMMSAlgo(void* arg) {
         runHeap.push(run);
         recordHeap = priority_queue<Record*, vector<Record*>, RecordComparator> (workerThreadArgs->order);
     }
-    int count = 0;
+
     while (!runHeap.empty()) {//Phase 2 -  Merging Runs to Produce Sorted Records
         Run* run = runHeap.top();
         runHeap.pop();
         workerThreadArgs->out->Insert(run->currRecord);
-        count++;
         if (run->getNextRecord() == 1) {
             runHeap.push(run);
         }
     }
-    cout << "BigQ output - " << count << endl;
     workerThreadArgs->out->ShutDown();
     tpmmsTempFile.Close();
     return NULL;

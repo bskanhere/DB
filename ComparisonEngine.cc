@@ -101,7 +101,6 @@ int ComparisonEngine :: Compare (Record *left, OrderMaker *order_left, Record *r
 			// cast the two bit strings to ints
 			val1Int = *((int *) val1);
 			val2Int = *((int *) val2);
-			cout << "In Comparison " << val1Int << " " << val2Int << endl;
 	
 			// and do the comparison
 			if (val1Int < val2Int) 
