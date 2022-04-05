@@ -6,41 +6,6 @@ static char *SUM_ATT_NAME = "SUM";
 static Attribute doubleAtt = {SUM_ATT_NAME, Double};
 static Schema sumSchema("sum_schema", 1, &doubleAtt);
 
-//SelectFile
-typedef struct {
-    DBFile &inFile;
-    Pipe &outPipe;
-    CNF &selOp;
-    Record &literal;
-} WorkerArg1;
-
-void* selectFileWorker(void* arg) {
-    int count = 0;
-    cout<<"In Select"<<endl;
-    WorkerArg1* workerArg = (WorkerArg1*) arg;
-    Record rec;
-    while(workerArg->inFile.GetNext(rec, workerArg->selOp, workerArg->literal)) {
-        count++;
-        workerArg->outPipe.Insert(&rec);
-    }
-    cout<<"Count " << count << endl;
-    workerArg->outPipe.ShutDown();
-    return NULL;
-}
-
-void SelectFile::Run(DBFile &inFile, Pipe &outPipe, CNF &selOp, Record &literal) {
-    WorkerArg1* workerArg = new WorkerArg1{inFile, outPipe, selOp, literal};
-    pthread_create(&workerThread, NULL, selectFileWorker, (void*) workerArg);
-}
-
-void SelectFile::WaitUntilDone() {
-	pthread_join(workerThread, NULL);
-}
-
-void SelectFile::Use_n_Pages (int runlen) {
-
-}
-
 
 //SelectPipe
 typedef struct {
@@ -48,11 +13,11 @@ typedef struct {
     Pipe &outPipe;
     CNF &selOp;
     Record &literal;
-} WorkerArg2;
+} SelectPipeWorkerArg;
 
-void* selectPipeWorker(void*arg) {
+void* selectPipeWorker(void* arg) {
     ComparisonEngine comparisonEngine;
-    WorkerArg2* workerArg = (WorkerArg2*) arg;
+    SelectPipeWorkerArg* workerArg = (SelectPipeWorkerArg*) arg;
     Record rec;
     while(workerArg->inPipe.Remove(&rec)) {
         if(comparisonEngine.Compare(&rec, &workerArg->literal, &workerArg->selOp)) {
@@ -64,41 +29,82 @@ void* selectPipeWorker(void*arg) {
 }
 
 void SelectPipe::Run(Pipe &inPipe, Pipe &outPipe, CNF &selOp, Record &literal) {
-    WorkerArg2* workerArg = new WorkerArg2{inPipe, outPipe, selOp, literal};
+    SelectPipeWorkerArg* workerArg = new SelectPipeWorkerArg{inPipe, outPipe, selOp, literal};
     pthread_create(&workerThread, NULL, selectPipeWorker, (void*) workerArg);
 }
 
-void SelectPipe::WaitUntilDone () {
+void SelectPipe::WaitUntilDone() {
 	pthread_join(workerThread, NULL);
 }
 
-void SelectPipe::Use_n_Pages (int runlen) {
+void SelectPipe::Use_n_Pages(int runlen) {
+
+}
+
+
+//SelectFile
+typedef struct {
+    DBFile &inFile;
+    Pipe &outPipe;
+    CNF &selOp;
+    Record &literal;
+} SelectFileWorkerArg;
+
+void* selectFileWorker(void* arg) {
+    SelectFileWorkerArg* workerArg = (SelectFileWorkerArg*) arg;
+    Record rec;
+    while(workerArg->inFile.GetNext(rec, workerArg->selOp, workerArg->literal)) {
+        workerArg->outPipe.Insert(&rec);
+    }
+    workerArg->outPipe.ShutDown();
+    return NULL;
+}
+
+void SelectFile::Run(DBFile &inFile, Pipe &outPipe, CNF &selOp, Record &literal) {
+    SelectFileWorkerArg* workerArg = new SelectFileWorkerArg{inFile, outPipe, selOp, literal};
+    pthread_create(&workerThread, NULL, selectFileWorker, (void*) workerArg);
+}
+
+void SelectFile::WaitUntilDone() {
+	pthread_join(workerThread, NULL);
+}
+
+void SelectFile::Use_n_Pages(int runlen) {
 
 }
 
 
 //Project
+typedef struct {
+	Pipe *inPipe;
+	Pipe *outPipe;
+	int *keepMe;
+	int numAttsInput;
+	int numAttsOutput;
+} ProjectWorkerArg;
+
 void* projectWorker (void* arg) {
-    ProjectArg* projectArg = (ProjectArg*) arg;
+    ProjectWorkerArg* workerArg = (ProjectWorkerArg*) arg;
     Record rec;
-    while (projectArg->inPipe->Remove(&rec) == 1) {
+    while (workerArg->inPipe->Remove(&rec) == 1) {
         Record* temp = new Record;
         temp->Consume(&rec);
-        temp->Project(projectArg->keepMe, projectArg->numAttsOutput, projectArg->numAttsInput);
-        projectArg->outPipe->Insert(temp);     
+        temp->Project(workerArg->keepMe, workerArg->numAttsOutput, workerArg->numAttsInput);
+        workerArg->outPipe->Insert(temp);     
     }
-    projectArg->outPipe->ShutDown();
+    workerArg->outPipe->ShutDown();
     return NULL;
 }
 
 void Project::Run(Pipe &inPipe, Pipe &outPipe, int *keepMe, int numAttsInput, int numAttsOutput) {
-    ProjectArg* projectArg = new ProjectArg;
-    projectArg->inPipe = &inPipe;
-    projectArg->outPipe = &outPipe;
-    projectArg->keepMe = keepMe;
-    projectArg->numAttsInput = numAttsInput;
-    projectArg->numAttsOutput = numAttsOutput;
-    pthread_create(&workerThread, NULL, projectWorker, (void*) projectArg);
+    ProjectWorkerArg* workerArg = new ProjectWorkerArg;
+    workerArg->inPipe = &inPipe;
+    workerArg->outPipe = &outPipe;
+    workerArg->keepMe = keepMe;
+    workerArg->numAttsInput = numAttsInput;
+    workerArg->numAttsOutput = numAttsOutput;
+
+    pthread_create(&workerThread, NULL, projectWorker, (void*) workerArg);
 }
 
 void Project::WaitUntilDone() {
@@ -111,39 +117,37 @@ void Project::Use_n_Pages(int n) {
 
 
 //Sum
-void Sum::Run(Pipe &inPipe, Pipe &outPipe, Function &computeMe) {
-    SumData *my_data = new SumData();
+typedef struct {
+    Pipe *inputPipe;
+    Pipe *outputPipe;
+    Function *computeMe;
+}SumWorkerArg;
 
-    my_data->inputPipe = &inPipe;
-    my_data->outputPipe = &outPipe;
-    my_data->computeMe = &computeMe;
-
-    pthread_create(&workerThread, nullptr, SumThreadMethod, (void *) my_data);
-}
-
-void *SumThreadMethod(void *threadData) {
-    SumData *my_data = (SumData *) threadData;
-    SumAll(my_data->inputPipe, my_data->outputPipe, my_data->computeMe);
-    my_data->outputPipe->ShutDown();
-}
-
-void SumAll(Pipe *inputPipe, Pipe *outputPipe, Function *computeMe) {
+void* sumWorker(void* arg) {
+    SumWorkerArg* workerArg = (SumWorkerArg*) arg;
     int intVal = 0;
     double doubleVal = 0;
     double sum = 0;
-    int count = 0;
-
     Record temp;
-    while (inputPipe->Remove(&temp)) {
-        count++;
+    while (workerArg->inputPipe->Remove(&temp)) {
         intVal = 0;
         doubleVal = 0;
-        computeMe->Apply(temp, intVal, doubleVal);
+        workerArg->computeMe->Apply(temp, intVal, doubleVal);
         sum += (intVal + doubleVal);
     }
-    cout << "Count Sum " << count ;
     temp.ComposeRecord(&sumSchema, (std::to_string(sum) + "|").c_str());
-    outputPipe->Insert(&temp);
+    workerArg->outputPipe->Insert(&temp);
+    workerArg->outputPipe->ShutDown();
+}
+
+void Sum::Run(Pipe &inPipe, Pipe &outPipe, Function &computeMe) {
+    SumWorkerArg* workerArg = new SumWorkerArg;
+
+    workerArg->inputPipe = &inPipe;
+    workerArg->outputPipe = &outPipe;
+    workerArg->computeMe = &computeMe;
+
+    pthread_create(&workerThread, nullptr, sumWorker, (void*) workerArg);
 }
 
 void Sum::WaitUntilDone() {
@@ -360,7 +364,7 @@ void *JoinThreadMethod(void *threadData) {
     if (leftOrderMaker.isEmpty() || rightOrderMaker.isEmpty()) {
         NestedBlockJoin(my_data->leftInputPipe, my_data->rightInputPipe, my_data->outputPipe, my_data->runLength);
     } else {
-        Pipe leftBigQOutputPipe(PIPE_BUFFER_SIZE), rightBigQOutputPipe(PIPE_BUFFER_SIZE);
+        Pipe leftBigQOutputPipe(DEFAULT_PIPE_SIZE), rightBigQOutputPipe(DEFAULT_PIPE_SIZE);
         BigQ(*my_data->leftInputPipe, leftBigQOutputPipe, leftOrderMaker, my_data->runLength);
         BigQ(*my_data->rightInputPipe, rightBigQOutputPipe, rightOrderMaker, my_data->runLength);
         JoinUsingSortMerge(&leftBigQOutputPipe, &rightBigQOutputPipe, my_data->outputPipe,

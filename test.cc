@@ -141,21 +141,21 @@ void q2 () {
 // expected output: 9.24623e+07
 void q3 () {
 
-	char *pred_s = "(ps_suppkey = ps_suppkey)";
-	init_SF_ps (pred_s, 100);
+	char *pred_s = "(s_suppkey = s_suppkey)";
+	init_SF_s (pred_s, 100);
 
 	Sum T;
 		// _s (input pipe)
 		Pipe _out (1);
 		Function func;
-			char *str_sum = "(ps_supplycost)";
-			get_cnf (str_sum, ps->schema (), func);
+			char *str_sum = "(s_acctbal + (s_acctbal * 1.05))";
+			get_cnf (str_sum, s->schema (), func);
 			func.Print ();
 	T.Use_n_Pages (1);
-	SF_ps.Run (dbf_ps, _s, cnf_ps, lit_ps);
+	SF_s.Run (dbf_s, _s, cnf_s, lit_s);
 	T.Run (_s, _out, func);
 
-	SF_ps.WaitUntilDone ();
+	SF_s.WaitUntilDone ();
 	T.WaitUntilDone ();
 
 	Schema out_sch ("out_sch", 1, &DA);

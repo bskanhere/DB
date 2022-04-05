@@ -17,18 +17,6 @@ class RelationalOp {
 	virtual void Use_n_Pages (int n) = 0;
 };
 
-class SelectFile : public RelationalOp { 
-
-	private:
-		pthread_t workerThread;
-
-	public:
-		void Run (DBFile &inFile, Pipe &outPipe, CNF &selOp, Record &literal);
-		void WaitUntilDone ();
-		void Use_n_Pages (int n);
-
-};
-
 class SelectPipe : public RelationalOp {
     private:
         pthread_t workerThread;
@@ -39,6 +27,18 @@ class SelectPipe : public RelationalOp {
 		void Use_n_Pages (int n);
 };
 
+class SelectFile : public RelationalOp { 
+
+	private:
+		pthread_t workerThread;
+
+	public:
+		void Run (DBFile &inFile, Pipe &outPipe, CNF &selOp, Record &literal);
+		void WaitUntilDone ();
+		void Use_n_Pages (int n);
+};
+
+
 class Project : public RelationalOp { 
 	private:
 		pthread_t workerThread;
@@ -48,13 +48,14 @@ class Project : public RelationalOp {
 		void Use_n_Pages (int n);
 };
 
-typedef struct {
-	Pipe *inPipe;
-	Pipe *outPipe;
-	int *keepMe;
-	int numAttsInput;
-	int numAttsOutput;
-} ProjectArg;
+class Sum : public RelationalOp {
+    private:
+        pthread_t workerThread;
+	public:
+	void Run (Pipe &inPipe, Pipe &outPipe, Function &computeMe);
+	void WaitUntilDone ();
+	void Use_n_Pages (int n);
+};
 
 struct JoinData {
     Pipe *leftInputPipe;
@@ -106,27 +107,7 @@ typedef struct {
 	int runLen;
 } DuplicateRemovalArg;
 
-struct SumData {
-    Pipe *inputPipe;
-    Pipe *outputPipe;
-    Function *computeMe;
-    int distinctFunc;
-};
 
-void *SumThreadMethod(void *threadData);
-
-void SumAll(Pipe *inPipe, Pipe *outPipe, Function *computeMe);
-
-void SumDistinct(Pipe *inPipe, Pipe *outPipe, Function *computeMe);
-
-class Sum : public RelationalOp {
-    private:
-        pthread_t workerThread;
-	public:
-	void Run (Pipe &inPipe, Pipe &outPipe, Function &computeMe);
-	void WaitUntilDone ();
-	void Use_n_Pages (int n);
-};
 
 class GroupBy : public RelationalOp {
     private:
