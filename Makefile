@@ -30,6 +30,9 @@ gtest2_1.out: Record.o Comparison.o ComparisonEngine.o Schema.o File.o GenericDB
 gtest2_2.out: Record.o Comparison.o ComparisonEngine.o Schema.o BigQ.o File.o DBFile.o GenericDBFile.o HeapDBFile.o SortedDBFile.o y.tab.o lex.yy.o Pipe.o gtest2_2.o
 	$(CC) -o gtest2_2.out Record.o Comparison.o ComparisonEngine.o Schema.o BigQ.o	 File.o DBFile.o GenericDBFile.o HeapDBFile.o SortedDBFile.o y.tab.o lex.yy.o Pipe.o  gtest.o -lfl -l pthread -lgtest
 
+gtest.out: Record.o Comparison.o ComparisonEngine.o Schema.o File.o DBFile.o GenericDBFile.o HeapDBFile.o SortedDBFile.o Pipe.o BigQ.o RelOp.o Function.o y.tab.o yyfunc.tab.o lex.yy.o lex.yyfunc.o gtest.o
+	$(CC) -o gtest.out Record.o Comparison.o ComparisonEngine.o Schema.o File.o DBFile.o GenericDBFile.o HeapDBFile.o SortedDBFile.o Pipe.o BigQ.o RelOp.o Function.o y.tab.o yyfunc.tab.o lex.yy.o lex.yyfunc.o gtest.o -lfl -l pthread -lgtest
+
 test1.o: tests/P1/test.cc
 	$(CC) -g -c tests/P1/test.cc
 

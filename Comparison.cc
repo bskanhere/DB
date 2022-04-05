@@ -117,10 +117,6 @@ void OrderMaker :: Print () {
 	}
 }
 
-bool OrderMaker::isEmpty() {
-    return numAtts == 0;
-}
-
 int CNF :: GetSortOrders (OrderMaker &left, OrderMaker &right) {
 
 	// initialize the size of the OrderMakers

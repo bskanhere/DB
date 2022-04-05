@@ -356,6 +356,3 @@ Type Function :: Apply (Record &toMe, int &intResult, double &doubleResult) {
 	
 }
 
-Type Function::GetReturnsIntType() const{
-	return returnsInt ? Int : Double;
-}

@@ -71,12 +71,8 @@ public:
 	void Print (Schema *mySchema);
 	
 	int GetNumAtts();
-
-	int GetLength() const;
 	
-    void MergeTheRecords (Record* left, Record* right);
-
-	void Write (FILE* file, Schema* mySchema);
+    void MergeRecords (Record* left, Record* right);
 };
 
 #endif

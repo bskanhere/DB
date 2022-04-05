@@ -79,9 +79,10 @@ double: [9.24623e+07]
  
 
  query4 
-Enter sort merge 
-Begin Worker Thread
-Begin Worker Thread
+double: [4.00421e+08]
+ query4 returned 1 recs 
+
+
 *************************************************************************************************************************************************************************
  
 ** IMPORTANT: MAKE SURE THE INFORMATION BELOW IS CORRECT **
@@ -90,7 +91,6 @@ Begin Worker Thread
  heap files dir: 	data/
  
 
-Begin Worker Thread
  query5 finished..output written to file ps.w.tmp
 
 

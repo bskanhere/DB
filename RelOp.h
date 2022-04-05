@@ -9,11 +9,9 @@
 
 class RelationalOp {
 	public:
-	// blocks the caller until the particular relational operator 
-	// has run to completion
+	
 	virtual void WaitUntilDone () = 0;
 
-	// tell us how much internal memory the operation can use
 	virtual void Use_n_Pages (int n) = 0;
 };
 
@@ -57,19 +55,10 @@ class Sum : public RelationalOp {
 	void Use_n_Pages (int n);
 };
 
-void NestedBlockJoin(Pipe *leftInputPipe, Pipe *rightInputPipe, Pipe *outputPipe, int runLength);
-
-void LoadVectorFromBlock(vector<Record *> *loadMe, Page *block, int blockLength);
-
-void sortMerge(Pipe *leftInputPipe, Pipe *rightInputPipe, Pipe *outputPipe,
-                        OrderMaker *leftOrderMaker, OrderMaker *rightOrderMaker);
-
-void JoinTableBlocks(vector<Record *> *leftBlockRecords, vector<Record *> *rightBlockRecords, Pipe *outputPipe);
-
 class Join : public RelationalOp { 
 	private:
 		pthread_t workerThread;
-		int runLen = 100;
+		int runLen = 16;
 	public:
 		void Run (Pipe &inPipeL, Pipe &inPipeR, Pipe &outPipe, CNF &selOp, Record &literal);
 		void WaitUntilDone ();
@@ -77,37 +66,20 @@ class Join : public RelationalOp {
 	
 };
 
+void sortMerge(Pipe *inPipeL, Pipe *inPipeR, Pipe *outPipe, OrderMaker *orderMakerL, OrderMaker *orderMakerR);
+
+void nestedBlock(Pipe *inPipeL, Pipe *inPipeR, Pipe *outPipe, int runLength);
+
 class DuplicateRemoval : public RelationalOp {
 	private:
 		pthread_t workerThread;
-		int runLen = 100;
+		int runLen = 16;
 	public:
 		void Run (Pipe &inPipe, Pipe &outPipe, Schema &mySchema);
 		void WaitUntilDone ();
 		void Use_n_Pages (int n);
 };
 
-//void* DuplicateRemovalWorker (void* arg);
-
-typedef struct {
-	Pipe *inPipe;
-	Pipe *outPipe;
-	OrderMaker *order;
-	int runLen;
-} DuplicateRemovalArg;
-
-
-
-class GroupBy : public RelationalOp {
-    private:
-        pthread_t worker;
-
-	public:
-		int use_n_pages = 16;
-		void Run (Pipe &inPipe, Pipe &outPipe, OrderMaker &groupAtts, Function &computeMe);
-		void WaitUntilDone ();
-		void Use_n_Pages (int n);
-};
 
 class WriteOut : public RelationalOp {
 	private:
@@ -116,13 +88,18 @@ class WriteOut : public RelationalOp {
 		void Run (Pipe &inPipe, FILE *outFile, Schema &mySchema);
 		void WaitUntilDone ();
 		void Use_n_Pages (int n);
-	
 };
 
-typedef struct {
-	Pipe *inPipe;
-	FILE *outFile;
-	Schema *schema;
-} WriteOutArg;
+class GroupBy : public RelationalOp {
+    private:
+        pthread_t worker;
+		int runLen = 16;
+
+	public:
+		void Run (Pipe &inPipe, Pipe &outPipe, OrderMaker &groupAtts, Function &computeMe);
+		void WaitUntilDone ();
+		void Use_n_Pages (int n);
+};
+
 
 #endif

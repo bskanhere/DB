@@ -102,6 +102,7 @@ void* TPMMSAlgo(void* arg) {
     }
     workerThreadArgs->out->ShutDown();
     tpmmsTempFile.Close();
+    remove(const_cast<char*>(fileName.c_str()));
     return NULL;
 }
 
