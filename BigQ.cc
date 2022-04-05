@@ -13,15 +13,27 @@ BigQ :: BigQ (Pipe &in, Pipe &out, OrderMaker &sortorder, int runlen) {
 
 void* TPMMSAlgo(void* arg) {
     
-    cout << "Begin Worker Thread" << endl;
+    //cout << "Begin Worker Thread" << endl;
 
     WorkerThreadArgs* workerThreadArgs = (WorkerThreadArgs*) arg;
     priority_queue<Run*, vector<Run*>, RunComparator> runHeap(workerThreadArgs->order);
     priority_queue<Record*, vector<Record*>, RecordComparator> recordHeap (workerThreadArgs->order);
     vector<Record* > recBuff;
     
+	char randomString[8];
+    static const char alphaNum[] =
+        "0123456789"
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        "abcdefghijklmnopqrstuvwxyz";
+
+    for (int i = 0; i < 8; ++i) {
+        randomString[i] = alphaNum[rand() % (sizeof(alphaNum) - 1)];
+    }
+    randomString[8] = 0;
+    std::string fileName("tpmms");
+    fileName = fileName + randomString + ".bin";
     File tpmmsTempFile;
-    tpmmsTempFile.Open(0, "temp.bin"); //Disk based file for storing sorted Runs 
+    tpmmsTempFile.Open(0, const_cast<char*>(fileName.c_str())); //Disk based file for storing sorted Runs 
 
     Page bufferPage;
     int pageIndex = 0;
@@ -90,6 +102,7 @@ void* TPMMSAlgo(void* arg) {
     }
     workerThreadArgs->out->ShutDown();
     tpmmsTempFile.Close();
+    remove(const_cast<char*>(fileName.c_str()));
     return NULL;
 }
 

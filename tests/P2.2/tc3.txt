@@ -1,0 +1,3 @@
+3
+7
+(o_orderdate > '1993-06-11') AND (o_orderpriority = '2-HIGH')

@@ -117,8 +117,6 @@ void OrderMaker :: Print () {
 	}
 }
 
-
-
 int CNF :: GetSortOrders (OrderMaker &left, OrderMaker &right) {
 
 	// initialize the size of the OrderMakers
