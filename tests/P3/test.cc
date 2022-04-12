@@ -1,6 +1,6 @@
 #include "test.h"
-#include "BigQ.h"
-#include "RelOp.h"
+#include "../../BigQ.h"
+#include "../../RelOp.h"
 #include <pthread.h>
 
 Attribute IA = {"int", Int};

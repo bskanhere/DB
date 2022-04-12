@@ -5,16 +5,16 @@
 #include <iostream>
 #include <math.h>
 
-#include "Function.h"
-#include "Pipe.h"
-#include "DBFile.h"
-#include "Record.h"
+#include "../../Function.h"
+#include "../../Pipe.h"
+#include "../../DBFile.h"
+#include "../../Record.h"
 
 using namespace std;
 
 // test settings file should have the 
 // catalog_path, dbfile_dir and tpch_dir information in separate lines
-const char *settings = "test.cat";
+const char *settings = "tests/P3/test.cat";
 
 // donot change this information here
 char *catalog_path, *dbfile_dir, *tpch_dir = NULL;

@@ -1,7 +1,7 @@
 #include "gtest/gtest.h"
-#include "DBFile.h"
-#include "BigQ.h"
-#include "RelOp.h"
+#include "../../DBFile.h"
+#include "../../BigQ.h"
+#include "../../RelOp.h"
 #include "test.h"
 #include <fstream>
 #include <pthread.h>
