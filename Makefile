@@ -21,6 +21,9 @@ test2_2.out: Record.o Comparison.o ComparisonEngine.o Schema.o File.o BigQ.o DBF
 test3.out: Record.o Comparison.o ComparisonEngine.o Schema.o File.o DBFile.o GenericDBFile.o HeapDBFile.o SortedDBFile.o Pipe.o BigQ.o RelOp.o Function.o y.tab.o yyfunc.tab.o lex.yy.o lex.yyfunc.o test3.o
 	$(CC) -o test3.out Record.o Comparison.o ComparisonEngine.o Schema.o File.o DBFile.o GenericDBFile.o HeapDBFile.o SortedDBFile.o Pipe.o BigQ.o RelOp.o Function.o y.tab.o yyfunc.tab.o lex.yy.o lex.yyfunc.o test.o -lpthread
 
+test.out: Record.o Comparison.o ComparisonEngine.o Schema.o File.o Statistics.o y.tab.o lex.yy.o test.o
+	$(CC) -o test.out Record.o Comparison.o ComparisonEngine.o Schema.o File.o Statistics.o y.tab.o lex.yy.o test.o -ll
+
 gtest1.out: Record.o Comparison.o ComparisonEngine.o Schema.o File.o GenericDBFile.o HeapDBFile.o y.tab.o lex.yy.o gtest1.o
 	$(CC) -o gtest1.out Record.o Comparison.o ComparisonEngine.o Schema.o File.o GenericDBFile.o HeapDBFile.o y.tab.o lex.yy.o gtest.o -lfl -l pthread -lgtest
 

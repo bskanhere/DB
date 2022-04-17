@@ -1,0 +1,49 @@
+Relation: supplier numOfTuple: 4
+JoinedRelation: part
+JoinedRelation: partsupp
+JoinedRelation: supplier
+Attribute: s_suppkey numOfDistinct: 10000
+EndOfRelation
+Relation: partsupp numOfTuple: 4
+JoinedRelation: part
+JoinedRelation: partsupp
+JoinedRelation: supplier
+Attribute: ps_suppkey numOfDistinct: 10000
+Attribute: ps_partkey numOfDistinct: 200000
+EndOfRelation
+Relation: orders numOfTuple: 2000405
+JoinedRelation: customer
+JoinedRelation: lineitem
+JoinedRelation: nation
+JoinedRelation: orders
+Attribute: o_orderkey numOfDistinct: 1500000
+Attribute: o_custkey numOfDistinct: 150000
+EndOfRelation
+Relation: part numOfTuple: -1
+JoinedRelation: lineitem
+JoinedRelation: part
+Attribute: p_conatiner numOfDistinct: 40
+Attribute: p_partkey numOfDistinct: 200000
+EndOfRelation
+Relation: customer numOfTuple: 2000405
+JoinedRelation: customer
+JoinedRelation: lineitem
+JoinedRelation: nation
+JoinedRelation: orders
+Attribute: c_custkey numOfDistinct: 150000
+Attribute: c_nationkey numOfDistinct: 25
+EndOfRelation
+Relation: lineitem numOfTuple: -1
+JoinedRelation: lineitem
+JoinedRelation: part
+Attribute: l_shipmode numOfDistinct: 7
+Attribute: l_shipinstruct numOfDistinct: 4
+Attribute: l_partkey numOfDistinct: 200000
+EndOfRelation
+Relation: nation numOfTuple: 2000405
+JoinedRelation: customer
+JoinedRelation: lineitem
+JoinedRelation: nation
+JoinedRelation: orders
+Attribute: n_nationkey numOfDistinct: 25
+EndOfRelation
