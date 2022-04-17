@@ -4,24 +4,24 @@ Statistics::Statistics() {
 }
 
 Statistics::Statistics(Statistics &copyMe) {
-    for (auto &x : copyMe.groupNameToRelationMap) {
-        groupNameToRelationMap[x.first] = x.second;
+    for (auto &x : copyMe.groupTupleCountMap) {
+        groupTupleCountMap[x.first] = x.second;
     }
 
-    for (auto &attNameToAttributeMapItem : copyMe.attNameToAttributeMap) {
-        attNameToAttributeMap[attNameToAttributeMapItem.first] = attNameToAttributeMapItem.second;
+    for (auto &attDistinctCountMapItem : copyMe.attDistinctCountMap) {
+        attDistinctCountMap[attDistinctCountMapItem.first] = attDistinctCountMapItem.second;
     }
 
-    for (auto &setNameToSetOfRelationsMapItem : copyMe.groupNameToSetOfRelationsMap) {
+    for (auto &groupToRelationsMapItem : copyMe.groupToRelationsMap) {
         unordered_set<string> newRelationSet;
-        for (auto &relName : setNameToSetOfRelationsMapItem.second) {
+        for (auto &relName : groupToRelationsMapItem.second) {
             newRelationSet.insert(relName);
         }
-        groupNameToSetOfRelationsMap[setNameToSetOfRelationsMapItem.first] = newRelationSet;
+        groupToRelationsMap[groupToRelationsMapItem.first] = newRelationSet;
     }
 
-    for (auto &relNameToSetNameMapItem : copyMe.relNameToGroupNameMap) {
-        relNameToGroupNameMap[relNameToSetNameMapItem.first] = relNameToSetNameMapItem.second;
+    for (auto &relationToGroupMapItem : copyMe.relationToGroupMap) {
+        relationToGroupMap[relationToGroupMapItem.first] = relationToGroupMapItem.second;
     }
 }
 
@@ -31,17 +31,17 @@ Statistics::~Statistics() {
 void Statistics::AddRel(char *relName, int numTuples) {
 
     // If the relation is not present. Add new relation and corresponding entries in map.
-    if (groupNameToSetOfRelationsMap.find(relName) == groupNameToSetOfRelationsMap.end()) {
+    if (groupToRelationsMap.find(relName) == groupToRelationsMap.end()) {
         unordered_set<string> newRelationSet;
         newRelationSet.insert(relName);
 
-        relNameToGroupNameMap[relName] = relName;
-        groupNameToSetOfRelationsMap[relName] = newRelationSet;
-        groupNameToRelationMap[relName] = numTuples;
+        relationToGroupMap[relName] = relName;
+        groupToRelationsMap[relName] = newRelationSet;
+        groupTupleCountMap[relName] = numTuples;
 
         // If the relation is not yet joined, update the number of tuples.
-    } else if (relNameToGroupNameMap[relName] == relName) {
-        groupNameToRelationMap[relName] = numTuples;
+    } else if (relationToGroupMap[relName] == relName) {
+        groupTupleCountMap[relName] = numTuples;
 
         // Otherwise throw an error, as table is already joined.
     } else {
@@ -51,37 +51,34 @@ void Statistics::AddRel(char *relName, int numTuples) {
 }
 
 void Statistics::AddAtt(char *relName, char *attName, int numDistincts) {
-    AddAtt(string(relName), string(attName), numDistincts);
-}
+    string attNameWithRelName = string(relName) + "." + attName;
 
-void Statistics::AddAtt(const string &relName, string attName, int numDistincts) {
-    string attNameWithRelName = relName + "." + attName;
-
-    if (attNameToAttributeMap.find(attNameWithRelName) != attNameToAttributeMap.end()
-        && relNameToGroupNameMap[relName] != relName) {
+    if (attDistinctCountMap.find(attNameWithRelName) != attDistinctCountMap.end()
+        && relationToGroupMap[relName] != relName) {
         cerr << "Relation is already joined with some table. Hence attribute can't be updated.\n";
         exit(1);
     }
 
     if (numDistincts == -1) {
-        numDistincts = groupNameToRelationMap[relNameToGroupNameMap[relName]];
+        numDistincts = groupTupleCountMap[relationToGroupMap[relName]];
     }
-    attNameToAttributeMap[attNameWithRelName] = numDistincts;
+    attDistinctCountMap[attNameWithRelName] = numDistincts;
 }
 
 void Statistics::CopyRel(char *oldName, char *newName) {
 
     // Add new relation.
-    AddRel(newName, groupNameToRelationMap[relNameToGroupNameMap[oldName]]);
+    AddRel(newName, groupTupleCountMap[relationToGroupMap[oldName]]);
 
     // Add attributes in the new relation.
-    for (auto attNameToAttributeMapItem : attNameToAttributeMap) {
-        string attNameWithRelName = attNameToAttributeMapItem.first;
+    for (auto attDistinctCountMapItem : attDistinctCountMap) {
+        string attNameWithRelName = attDistinctCountMapItem.first;
         string relName = attNameWithRelName.substr(0, attNameWithRelName.find('.'));
 
         if (relName == string(oldName)) {
             string attName = attNameWithRelName.substr(attNameWithRelName.find('.') + 1);
-            AddAtt(string(newName), attName, attNameToAttributeMapItem.second);
+            attNameWithRelName = string(newName) + "." + attName;
+            attDistinctCountMap[attNameWithRelName] = attDistinctCountMapItem.second;
         }
     }
 }
@@ -97,57 +94,57 @@ void Statistics::Read(char *fromWhere) {
     getline(fIn, readLine);
     getline(fIn, readLine);
     int setNameToRelationMapSize = stoi(readLine);
-    groupNameToRelationMap.clear();
+    groupTupleCountMap.clear();
     for (int i = 0; i < setNameToRelationMapSize; i++) {
         getline(fIn, readLine, '=');
         string groupName = readLine;
         getline(fIn, readLine);
         int numOfTuples = stoi(readLine);
-        groupNameToRelationMap[groupName] = numOfTuples;
+        groupTupleCountMap[groupName] = numOfTuples;
     }
 
     getline(fIn, readLine);
     getline(fIn, readLine);
-    int attNameToAttributeMapSize = stoi(readLine);
-    attNameToAttributeMap.clear();
-    for (int i = 0; i < attNameToAttributeMapSize; i++) {
+    int attDistinctCountMapSize = stoi(readLine);
+    attDistinctCountMap.clear();
+    for (int i = 0; i < attDistinctCountMapSize; i++) {
         getline(fIn, readLine, '=');
         string attName = readLine;
         getline(fIn, readLine);
         int numOfDistinct = stoi(readLine);
-        attNameToAttributeMap[attName] = numOfDistinct;
+        attDistinctCountMap[attName] = numOfDistinct;
     }
 
     getline(fIn, readLine);
     getline(fIn, readLine);
     int setNameToSetOfRelationsMapSize = stoi(readLine);
-    groupNameToSetOfRelationsMap.clear();
+    groupToRelationsMap.clear();
     for (int i = 0; i < setNameToSetOfRelationsMapSize; i++) {
         getline(fIn, readLine, '=');
         string groupName = readLine;
 
         unordered_set<string> newRelationSet;
-        groupNameToSetOfRelationsMap[groupName] = newRelationSet;
+        groupToRelationsMap[groupName] = newRelationSet;
 
         getline(fIn, readLine);
         stringstream s_stream(readLine);
 
         while (s_stream.good()) {
             getline(s_stream, readLine, ',');
-            groupNameToSetOfRelationsMap[groupName].insert(readLine);
+            groupToRelationsMap[groupName].insert(readLine);
         }
     }
 
     getline(fIn, readLine);
     getline(fIn, readLine);
     int relNameToSetNameMapSize = stoi(readLine);
-    relNameToGroupNameMap.clear();
-    for (int i = 0; i < attNameToAttributeMapSize; i++) {
+    relationToGroupMap.clear();
+    for (int i = 0; i < attDistinctCountMapSize; i++) {
         getline(fIn, readLine, '=');
         string relName = readLine;
         getline(fIn, readLine);
         string groupName = readLine;
-        relNameToGroupNameMap[relName] = groupName;
+        relationToGroupMap[relName] = groupName;
     }
 
 }
@@ -157,20 +154,20 @@ void Statistics::Write(char *fromWhere) {
     fOut.open(fromWhere);
 
     fOut << "**************** Group Relations *****************\n";
-    fOut << groupNameToRelationMap.size() << "\n";
-    for (auto &x: groupNameToRelationMap) {
+    fOut << groupTupleCountMap.size() << "\n";
+    for (auto &x: groupTupleCountMap) {
         fOut << x.first << "=" << x.second << "\n";
     }
 
     fOut << "**************** Attributes ******************\n";
-    fOut << attNameToAttributeMap.size() << "\n";
-    for (auto &x: attNameToAttributeMap) {
+    fOut << attDistinctCountMap.size() << "\n";
+    for (auto &x: attDistinctCountMap) {
         fOut << x.first << "=" << x.second << "\n";
     }
 
     fOut << "****************** GroupName to Relations ****************\n";
-    fOut << groupNameToSetOfRelationsMap.size() << "\n";
-    for (auto &x: groupNameToSetOfRelationsMap) {
+    fOut << groupToRelationsMap.size() << "\n";
+    for (auto &x: groupToRelationsMap) {
         auto secondIterator = x.second.begin();
         fOut << x.first << "=" << *(secondIterator);
         while (++secondIterator != x.second.end()) {
@@ -180,8 +177,8 @@ void Statistics::Write(char *fromWhere) {
     }
 
     fOut << "******************** Relation Name to Group Name *****************\n";
-    fOut << relNameToGroupNameMap.size() << "\n";
-    for (auto &x: relNameToGroupNameMap) {
+    fOut << relationToGroupMap.size() << "\n";
+    for (auto &x: relationToGroupMap) {
         fOut << x.first << "=" << x.second << "\n";
     }
 }
@@ -192,7 +189,10 @@ void Statistics::Apply(struct AndList *parseTree, char *relNames[], int numToJoi
         relNamesSet.insert(relNames[i]);
     }
 
-    PreProcessApply(parseTree, &relNamesSet);
+    //validation
+    ValidateApplyOnRelations(&relNamesSet);
+    PreProcessApplyOnAttributes(parseTree, &relNamesSet);
+
     string resultantGroupName;
     unordered_map<string, double> attNameToProbabilitiesMap;
     while (parseTree) {
@@ -214,16 +214,16 @@ void Statistics::Apply(struct AndList *parseTree, char *relNames[], int numToJoi
                 }
 
                 string leftAttNameWithRelName = string(leftOperand->value);
-                int numOfDistinctInLeftAtt = attNameToAttributeMap[leftAttNameWithRelName];
+                int numOfDistinctInLeftAtt = attDistinctCountMap[leftAttNameWithRelName];
                 string leftRelName = leftAttNameWithRelName.substr(0, leftAttNameWithRelName.find('.'));
-                string leftGroupName = relNameToGroupNameMap[leftRelName];
-                double numOfTuplesInLeftGroup = groupNameToRelationMap[leftGroupName];
+                string leftGroupName = relationToGroupMap[leftRelName];
+                double numOfTuplesInLeftGroup = groupTupleCountMap[leftGroupName];
 
                 string rightAttNameWithRelName = string(rightOperand->value);
-                int numOfDistinctInRightAtt = attNameToAttributeMap[rightAttNameWithRelName];
+                int numOfDistinctInRightAtt = attDistinctCountMap[rightAttNameWithRelName];
                 string rightRelName = rightAttNameWithRelName.substr(0, rightAttNameWithRelName.find('.'));
-                string rightGroupName = relNameToGroupNameMap[rightRelName];
-                double numOfTuplesInRightGroup = groupNameToRelationMap[rightGroupName];
+                string rightGroupName = relationToGroupMap[rightRelName];
+                double numOfTuplesInRightGroup = groupTupleCountMap[rightGroupName];
 
                 if (leftGroupName == rightGroupName) {
                     cerr << "Table " << leftRelName << " is already joined with " << rightGroupName << ".\n";
@@ -241,28 +241,28 @@ void Statistics::Apply(struct AndList *parseTree, char *relNames[], int numToJoi
                 newGroupName.append(leftGroupName).append("&").append(rightGroupName);
 
                 // Delete leftGroups and rightGroups for Different map.
-                groupNameToRelationMap.erase(leftGroupName);
-                groupNameToRelationMap.erase(rightGroupName);
+                groupTupleCountMap.erase(leftGroupName);
+                groupTupleCountMap.erase(rightGroupName);
 
                 // Create new group relation.
-                groupNameToRelationMap[newGroupName] = numOfTuplesAfterJoin;
+                groupTupleCountMap[newGroupName] = numOfTuplesAfterJoin;
                 unordered_set<string> newRelationSet;
 
 
                 // Change groups of leftGroups and rightGroups relations.
-                for (const string &relName : groupNameToSetOfRelationsMap[leftGroupName]) {
-                    relNameToGroupNameMap[relName] = newGroupName;
+                for (const string &relName : groupToRelationsMap[leftGroupName]) {
+                    relationToGroupMap[relName] = newGroupName;
                     newRelationSet.insert(relName);
                 }
-                groupNameToSetOfRelationsMap.erase(leftGroupName);
+                groupToRelationsMap.erase(leftGroupName);
 
-                for (const string &relName : groupNameToSetOfRelationsMap[rightGroupName]) {
-                    relNameToGroupNameMap[relName] = newGroupName;
+                for (const string &relName : groupToRelationsMap[rightGroupName]) {
+                    relationToGroupMap[relName] = newGroupName;
                     newRelationSet.insert(relName);
                 }
-                groupNameToSetOfRelationsMap.erase(rightGroupName);
+                groupToRelationsMap.erase(rightGroupName);
 
-                groupNameToSetOfRelationsMap[newGroupName] = newRelationSet;
+                groupToRelationsMap[newGroupName] = newRelationSet;
                 resultantGroupName = newGroupName;
             }
                 // Otherwise it is a select operation.
@@ -271,7 +271,7 @@ void Statistics::Apply(struct AndList *parseTree, char *relNames[], int numToJoi
                 string attNameWithRelName = string(nameOperand->value);
                 string relName = attNameWithRelName.substr(0, attNameWithRelName.find('.'));
                 if (currentComparisonOp->code == EQUALS) {
-                    double probabilityFraction = 1.0 / attNameToAttributeMap[attNameWithRelName];
+                    double probabilityFraction = 1.0 / attDistinctCountMap[attNameWithRelName];
                     if (attNameToProbabilitiesMap.find(attNameWithRelName) == attNameToProbabilitiesMap.end()) {
                         attNameToProbabilitiesMap[attNameWithRelName] = probabilityFraction;
                     } else {
@@ -284,7 +284,7 @@ void Statistics::Apply(struct AndList *parseTree, char *relNames[], int numToJoi
 
                     }
                 }
-                resultantGroupName = relNameToGroupNameMap[relName];
+                resultantGroupName = relationToGroupMap[relName];
             } else {
                 cerr << "left operand " << string(leftOperand->value) << " and right operand "
                      << string(rightOperand->value) << " are not valid.\n";
@@ -294,7 +294,7 @@ void Statistics::Apply(struct AndList *parseTree, char *relNames[], int numToJoi
         }
 
         if (!attNameToProbabilitiesMap.empty()) {
-            double numOfTuples = groupNameToRelationMap[resultantGroupName];
+            double numOfTuples = groupTupleCountMap[resultantGroupName];
             double multiplicationFactor = 0.0;
 
             if (attNameToProbabilitiesMap.size() == 1) {
@@ -314,7 +314,7 @@ void Statistics::Apply(struct AndList *parseTree, char *relNames[], int numToJoi
             numOfTuples *= multiplicationFactor;
 
 
-            groupNameToRelationMap[resultantGroupName] = numOfTuples;
+            groupTupleCountMap[resultantGroupName] = numOfTuples;
         }
         parseTree = parseTree->rightAnd;
     }
@@ -327,7 +327,7 @@ double Statistics::Estimate(struct AndList *parseTree, char **relNames, int numT
     dummy.Apply(parseTree, relNames, numToJoin);
     unordered_set<string> groupNames;
     for (int i = 0; i < numToJoin; i++) {
-        groupNames.insert(dummy.relNameToGroupNameMap[relNames[i]]);
+        groupNames.insert(dummy.relationToGroupMap[relNames[i]]);
     }
 
     if (groupNames.size() != 1) {
@@ -335,29 +335,22 @@ double Statistics::Estimate(struct AndList *parseTree, char **relNames, int numT
         exit(1);
     }
 
-    return dummy.groupNameToRelationMap[*groupNames.begin()];
-}
-
-void Statistics::PreProcessApply(struct AndList *parseTree, unordered_set<string> *relNames) {
-    // Validate Relations
-    ValidateApplyOnRelations(relNames);
-    // Check attributes
-    PreProcessApplyOnAttributes(parseTree, relNames);
+    return dummy.groupTupleCountMap[*groupNames.begin()];
 }
 
 void Statistics::ValidateApplyOnRelations(unordered_set<string> *relNames) {
     unordered_set<string> setNamesToJoin;
     for (const string &relName : *relNames) {
-        if (relNameToGroupNameMap.find(relName) == relNameToGroupNameMap.end()) {
+        if (relationToGroupMap.find(relName) == relationToGroupMap.end()) {
             cerr << "Relation " << relName << " is not present in statistics.\n";
             exit(1);
         }
-        setNamesToJoin.insert(relNameToGroupNameMap[relName]);
+        setNamesToJoin.insert(relationToGroupMap[relName]);
     }
 
     unordered_set<string> relationsInResult;
     for (const string &setName : setNamesToJoin) {
-        for (const string &relName : groupNameToSetOfRelationsMap[setName]) {
+        for (const string &relName : groupToRelationsMap[setName]) {
             relationsInResult.insert(relName);
         }
     }
@@ -394,7 +387,7 @@ void Statistics::PreProcessNameOperand(Operand *operand, unordered_set<string> *
     // If operandValue contains relation name i.e name is of the form "relName.attName".
     if (operandValue.find('.') != string::npos) {
         string relationName = operandValue.substr(0, operandValue.find('.'));
-        if (attNameToAttributeMap.find(operandValue) == attNameToAttributeMap.end()) {
+        if (attDistinctCountMap.find(operandValue) == attDistinctCountMap.end()) {
             cerr << "Attribute " << string(operandValue) << " is not present in Statistics.\n";
         }
         if (relNames->find(relationName) == relNames->end()) {
@@ -404,7 +397,7 @@ void Statistics::PreProcessNameOperand(Operand *operand, unordered_set<string> *
         bool relFound = false;
         for (const string &relName : *relNames) {
             string attributeNameWithRelName = relName + "." + string(operandValue);
-            if (attNameToAttributeMap.find(attributeNameWithRelName) != attNameToAttributeMap.end()) {
+            if (attDistinctCountMap.find(attributeNameWithRelName) != attDistinctCountMap.end()) {
                 relFound = true;
                 char *newOperandValue = new char[attributeNameWithRelName.size() + 1];
                 strcpy(newOperandValue, attributeNameWithRelName.c_str());

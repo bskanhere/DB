@@ -16,14 +16,10 @@ using namespace std;
 class Statistics {
 
 private:
-    unordered_map<string, double> groupNameToRelationMap;
-    unordered_map<string, int> attNameToAttributeMap;
-    unordered_map<string, unordered_set<string> > groupNameToSetOfRelationsMap;
-    unordered_map<string, string> relNameToGroupNameMap;
-
-    void AddAtt(const string &relName, string attName, int numDistincts);
-
-    void PreProcessApply(struct AndList *parseTree, unordered_set<string> *relNames);
+    unordered_map<string, double> groupTupleCountMap;
+    unordered_map<string, int> attDistinctCountMap;
+    unordered_map<string, unordered_set<string> > groupToRelationsMap;
+    unordered_map<string, string> relationToGroupMap;
 
     void ValidateApplyOnRelations(unordered_set<string> *relNames);
 
