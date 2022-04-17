@@ -88,10 +88,10 @@ void q0 (){
     char *relName[] = {"supplier","partsupp"};
 
 	
-	s.AddRel(relName[0],10000);
+	s.AddRel(relName[0], 10000);
 	s.AddAtt(relName[0], "s_suppkey",10000);
 
-	s.AddRel(relName[1],800000);
+	s.AddRel(relName[1], 800000);
 	s.AddAtt(relName[1], "ps_suppkey", 10000);	
 
 	char *cnf = "(s_suppkey = ps_suppkey)";
@@ -242,7 +242,7 @@ void q3 (){
 void q4 (){
 
 	Statistics s;
-        char *relName[] = { "part", "partsupp", "supplier", "nation", "region", "p", "ps", "s", "n", "r"};
+        char *relName[] = { "part", "partsupp", "supplier", "nation", "region"};
 
 	s.AddRel(relName[0],200000);
 	s.AddAtt(relName[0], "p_partkey",200000);
@@ -270,30 +270,33 @@ void q4 (){
 	s.CopyRel("nation","n");
 	s.CopyRel("region","r");
 
+	char *set1[] = {"p","ps"};
 	char *cnf = "(p.p_partkey=ps.ps_partkey) AND (p.p_size = 2)";
 	yy_scan_string(cnf);
 	yyparse();
-	s.Apply(final, relName, 2);
+	s.Apply(final, set1, 2);
 
+	char *set2[] = {"p","ps", "s"};
 	cnf ="(s.s_suppkey = ps.ps_suppkey)";
 	yy_scan_string(cnf);
 	yyparse();
-	s.Apply(final, relName, 3);
+	s.Apply(final, set2, 3);
 
+	char *set3[] = {"p","ps", "s", "n"};
 	cnf =" (s.s_nationkey = n.n_nationkey)";
 	yy_scan_string(cnf);
 	yyparse();
-	s.Apply(final, relName, 4);
+	s.Apply(final, set3, 4);
 
+	char *set4[] = {"p","ps", "s", "n", "r"};
 	cnf ="(n.n_regionkey = r.r_regionkey) AND (r.r_name = 'AMERICA') ";
 	yy_scan_string(cnf);
 	yyparse();
-
-	double result = s.Estimate(final, relName, 5);
+	double result = s.Estimate(final, set4, 5);
 	if(fabs(result-3200)>0.1)
 		cout<<"error in estimating Q4\n";
 
-	s.Apply(final, relName, 5);	
+	s.Apply(final, set4, 5);	
 	
 	s.Write(fileName);
 	
@@ -314,6 +317,7 @@ void q5 (){
 	s.AddRel(relName[1],1500000);
 	s.AddAtt(relName[1], "o_orderkey",1500000);
 	s.AddAtt(relName[1], "o_custkey",150000);
+    s.AddAtt(relName[1], "o_orderdate",150000);
 	
 	s.AddRel(relName[2],6001215);
 	s.AddAtt(relName[2], "l_orderkey",1500000);
@@ -396,6 +400,7 @@ void q7(){
 	
 	s.AddRel(relName[1],6001215);
 	s.AddAtt(relName[1], "l_orderkey",1500000);
+	s.AddAtt(relName[1], "l_receiptdate",1500000);
 	
 
 	char *cnf = "(l_receiptdate >'1995-02-01' ) AND (l_orderkey = o_orderkey)";
@@ -497,6 +502,7 @@ void q10 (){
 	s.AddRel(relName[1],1500000);
 	s.AddAtt(relName[1], "o_orderkey",1500000);
 	s.AddAtt(relName[1], "o_custkey",150000);
+	s.AddAtt(relName[1], "o_orderdate",150000);
 	
 	s.AddRel(relName[2],6001215);
 	s.AddAtt(relName[2], "l_orderkey",1500000);
@@ -537,7 +543,7 @@ void q11 (){
 	
 	s.AddRel(relName[0],200000);
 	s.AddAtt(relName[0], "p_partkey",200000);
-	s.AddAtt(relName[0], "p_conatiner",40);
+	s.AddAtt(relName[0], "p_container",40);
 
 	s.AddRel(relName[1],6001215);
 	s.AddAtt(relName[1], "l_partkey",200000);
@@ -567,7 +573,7 @@ int main(int argc, char *argv[]) {
 		exit (1);
 	}
 
-	void (*query_ptr[]) () = {&q0,&q1, &q2, &q3, &q4, &q5, &q6, &q7, &q8,&q9,&q10,&q11};  
+	void (*query_ptr[]) () = {&q0,&q1, &q2, &q3, &q4, &q5, &q6, &q7, &q8, &q9, &q10, &q11};  
 	void (*query) ();
 	int qindx = atoi (argv[1]);
 
