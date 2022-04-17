@@ -5,12 +5,11 @@ Statistics::Statistics() {
 
 Statistics::Statistics(Statistics &copyMe) {
     for (auto &x : copyMe.groupNameToRelationMap) {
-        groupNameToRelationMap[x.first] = Relation(x.second.GetNumOfTuples());
+        groupNameToRelationMap[x.first] = x.second;
     }
 
     for (auto &attNameToAttributeMapItem : copyMe.attNameToAttributeMap) {
-        attNameToAttributeMap[attNameToAttributeMapItem.first] =
-                Att(attNameToAttributeMapItem.second.GetNumOfDistinct());
+        attNameToAttributeMap[attNameToAttributeMapItem.first] = attNameToAttributeMapItem.second;
     }
 
     for (auto &setNameToSetOfRelationsMapItem : copyMe.groupNameToSetOfRelationsMap) {
@@ -38,11 +37,11 @@ void Statistics::AddRel(char *relName, int numTuples) {
 
         relNameToGroupNameMap[relName] = relName;
         groupNameToSetOfRelationsMap[relName] = newRelationSet;
-        groupNameToRelationMap[relName] = Relation(numTuples);
+        groupNameToRelationMap[relName] = numTuples;
 
         // If the relation is not yet joined, update the number of tuples.
     } else if (relNameToGroupNameMap[relName] == relName) {
-        groupNameToRelationMap[relName].SetNumOfTuples(numTuples);
+        groupNameToRelationMap[relName] = numTuples;
 
         // Otherwise throw an error, as table is already joined.
     } else {
@@ -65,15 +64,15 @@ void Statistics::AddAtt(const string &relName, string attName, int numDistincts)
     }
 
     if (numDistincts == -1) {
-        numDistincts = groupNameToRelationMap[relNameToGroupNameMap[relName]].GetNumOfTuples();
+        numDistincts = groupNameToRelationMap[relNameToGroupNameMap[relName]];
     }
-    attNameToAttributeMap[attNameWithRelName] = Att(numDistincts);
+    attNameToAttributeMap[attNameWithRelName] = numDistincts;
 }
 
 void Statistics::CopyRel(char *oldName, char *newName) {
 
     // Add new relation.
-    AddRel(newName, groupNameToRelationMap[relNameToGroupNameMap[oldName]].GetNumOfTuples());
+    AddRel(newName, groupNameToRelationMap[relNameToGroupNameMap[oldName]]);
 
     // Add attributes in the new relation.
     for (auto attNameToAttributeMapItem : attNameToAttributeMap) {
@@ -82,7 +81,7 @@ void Statistics::CopyRel(char *oldName, char *newName) {
 
         if (relName == string(oldName)) {
             string attName = attNameWithRelName.substr(attNameWithRelName.find('.') + 1);
-            AddAtt(string(newName), attName, attNameToAttributeMapItem.second.GetNumOfDistinct());
+            AddAtt(string(newName), attName, attNameToAttributeMapItem.second);
         }
     }
 }
@@ -104,7 +103,7 @@ void Statistics::Read(char *fromWhere) {
         string groupName = readLine;
         getline(fIn, readLine);
         int numOfTuples = stoi(readLine);
-        groupNameToRelationMap[groupName] = Relation(numOfTuples);
+        groupNameToRelationMap[groupName] = numOfTuples;
     }
 
     getline(fIn, readLine);
@@ -116,7 +115,7 @@ void Statistics::Read(char *fromWhere) {
         string attName = readLine;
         getline(fIn, readLine);
         int numOfDistinct = stoi(readLine);
-        attNameToAttributeMap[attName] = Att(numOfDistinct);
+        attNameToAttributeMap[attName] = numOfDistinct;
     }
 
     getline(fIn, readLine);
@@ -160,13 +159,13 @@ void Statistics::Write(char *fromWhere) {
     fOut << "**************** Group Relations *****************\n";
     fOut << groupNameToRelationMap.size() << "\n";
     for (auto &x: groupNameToRelationMap) {
-        fOut << x.first << "=" << x.second.GetNumOfTuples() << "\n";
+        fOut << x.first << "=" << x.second << "\n";
     }
 
     fOut << "**************** Attributes ******************\n";
     fOut << attNameToAttributeMap.size() << "\n";
     for (auto &x: attNameToAttributeMap) {
-        fOut << x.first << "=" << x.second.GetNumOfDistinct() << "\n";
+        fOut << x.first << "=" << x.second << "\n";
     }
 
     fOut << "****************** GroupName to Relations ****************\n";
@@ -215,16 +214,16 @@ void Statistics::Apply(struct AndList *parseTree, char *relNames[], int numToJoi
                 }
 
                 string leftAttNameWithRelName = string(leftOperand->value);
-                int numOfDistinctInLeftAtt = attNameToAttributeMap[leftAttNameWithRelName].GetNumOfDistinct();
+                int numOfDistinctInLeftAtt = attNameToAttributeMap[leftAttNameWithRelName];
                 string leftRelName = leftAttNameWithRelName.substr(0, leftAttNameWithRelName.find('.'));
                 string leftGroupName = relNameToGroupNameMap[leftRelName];
-                double numOfTuplesInLeftGroup = groupNameToRelationMap[leftGroupName].GetNumOfTuples();
+                double numOfTuplesInLeftGroup = groupNameToRelationMap[leftGroupName];
 
                 string rightAttNameWithRelName = string(rightOperand->value);
-                int numOfDistinctInRightAtt = attNameToAttributeMap[rightAttNameWithRelName].GetNumOfDistinct();
+                int numOfDistinctInRightAtt = attNameToAttributeMap[rightAttNameWithRelName];
                 string rightRelName = rightAttNameWithRelName.substr(0, rightAttNameWithRelName.find('.'));
                 string rightGroupName = relNameToGroupNameMap[rightRelName];
-                double numOfTuplesInRightGroup = groupNameToRelationMap[rightGroupName].GetNumOfTuples();
+                double numOfTuplesInRightGroup = groupNameToRelationMap[rightGroupName];
 
                 if (leftGroupName == rightGroupName) {
                     cerr << "Table " << leftRelName << " is already joined with " << rightGroupName << ".\n";
@@ -272,7 +271,7 @@ void Statistics::Apply(struct AndList *parseTree, char *relNames[], int numToJoi
                 string attNameWithRelName = string(nameOperand->value);
                 string relName = attNameWithRelName.substr(0, attNameWithRelName.find('.'));
                 if (currentComparisonOp->code == EQUALS) {
-                    double probabilityFraction = 1.0 / attNameToAttributeMap[attNameWithRelName].GetNumOfDistinct();
+                    double probabilityFraction = 1.0 / attNameToAttributeMap[attNameWithRelName];
                     if (attNameToProbabilitiesMap.find(attNameWithRelName) == attNameToProbabilitiesMap.end()) {
                         attNameToProbabilitiesMap[attNameWithRelName] = probabilityFraction;
                     } else {
@@ -295,7 +294,7 @@ void Statistics::Apply(struct AndList *parseTree, char *relNames[], int numToJoi
         }
 
         if (!attNameToProbabilitiesMap.empty()) {
-            double numOfTuples = groupNameToRelationMap[resultantGroupName].GetNumOfTuples();
+            double numOfTuples = groupNameToRelationMap[resultantGroupName];
             double multiplicationFactor = 0.0;
 
             if (attNameToProbabilitiesMap.size() == 1) {
@@ -315,7 +314,7 @@ void Statistics::Apply(struct AndList *parseTree, char *relNames[], int numToJoi
             numOfTuples *= multiplicationFactor;
 
 
-            groupNameToRelationMap[resultantGroupName].SetNumOfTuples(numOfTuples);
+            groupNameToRelationMap[resultantGroupName] = numOfTuples;
         }
         parseTree = parseTree->rightAnd;
     }
@@ -336,7 +335,7 @@ double Statistics::Estimate(struct AndList *parseTree, char **relNames, int numT
         exit(1);
     }
 
-    return dummy.groupNameToRelationMap[*groupNames.begin()].GetNumOfTuples();
+    return dummy.groupNameToRelationMap[*groupNames.begin()];
 }
 
 void Statistics::PreProcessApply(struct AndList *parseTree, unordered_set<string> *relNames) {
@@ -418,20 +417,4 @@ void Statistics::PreProcessNameOperand(Operand *operand, unordered_set<string> *
             exit(1);
         }
     }
-}
-
-unordered_map<string, Relation> *Statistics::GetGroupNameToRelationMap() {
-    return &this->groupNameToRelationMap;
-}
-
-unordered_map<string, Att> *Statistics::GetAttNameToAttributeMap() {
-    return &this->attNameToAttributeMap;
-}
-
-unordered_map<string, unordered_set<string> > *Statistics::GetGroupNameToSetOfRelationsMap() {
-    return &this->groupNameToSetOfRelationsMap;
-}
-
-unordered_map<string, string> *Statistics::GetRelNameToGroupNameMap() {
-    return &this->relNameToGroupNameMap;
 }

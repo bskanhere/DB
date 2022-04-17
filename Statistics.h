@@ -13,55 +13,11 @@
 
 using namespace std;
 
-struct Relation {
-private:
-    double numOfTuples;
-
-public:
-    Relation() {
-        this->numOfTuples = 0;
-    }
-
-    Relation(double numOfTuples) {
-        this->numOfTuples = numOfTuples;
-    }
-
-    double GetNumOfTuples() {
-        return numOfTuples;
-    }
-
-    void SetNumOfTuples(double n) {
-        this->numOfTuples = n;
-    }
-};
-
-struct Att {
-private:
-    int numOfDistinct;
-
-public:
-    Att() {
-        this->numOfDistinct = 0;
-    }
-
-    Att(int numOfDistinct) {
-        this->numOfDistinct = numOfDistinct;
-    }
-
-    int GetNumOfDistinct() {
-        return numOfDistinct;
-    }
-
-    void SetNumOfDistinct(int n) {
-        this->numOfDistinct = n;
-    }
-};
-
 class Statistics {
 
 private:
-    unordered_map<string, Relation> groupNameToRelationMap;
-    unordered_map<string, Att> attNameToAttributeMap;
+    unordered_map<string, double> groupNameToRelationMap;
+    unordered_map<string, int> attNameToAttributeMap;
     unordered_map<string, unordered_set<string> > groupNameToSetOfRelationsMap;
     unordered_map<string, string> relNameToGroupNameMap;
 
@@ -96,13 +52,6 @@ public:
 
     double Estimate(struct AndList *parseTree, char **relNames, int numToJoin);
 
-    unordered_map<string, Relation> *GetGroupNameToRelationMap();
-
-    unordered_map<string, Att> *GetAttNameToAttributeMap();
-
-    unordered_map<string, unordered_set<string> > *GetGroupNameToSetOfRelationsMap();
-
-    unordered_map<string, string> *GetRelNameToGroupNameMap();
 };
 
 #endif
