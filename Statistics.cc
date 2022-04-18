@@ -4,23 +4,23 @@ Statistics::Statistics() {
 }
 
 Statistics::Statistics(Statistics &copyMe) {
-    for (auto &x : copyMe.groupTupleCountMap) {
-        groupTupleCountMap[x.first] = x.second;
+    for(auto &groupTupleCountMapItem : copyMe.groupTupleCountMap) {
+        groupTupleCountMap[groupTupleCountMapItem.first] = groupTupleCountMapItem.second;
     }
 
-    for (auto &attDistinctCountMapItem : copyMe.attDistinctCountMap) {
+    for(auto &attDistinctCountMapItem : copyMe.attDistinctCountMap) {
         attDistinctCountMap[attDistinctCountMapItem.first] = attDistinctCountMapItem.second;
     }
 
-    for (auto &groupToRelationsMapItem : copyMe.groupToRelationsMap) {
-        unordered_set<string> newRelationSet;
-        for (auto &relName : groupToRelationsMapItem.second) {
-            newRelationSet.insert(relName);
+    for(auto &groupToRelationsMapItem : copyMe.groupToRelationsMap) {
+        unordered_set<string> relations;
+        for (auto &relation : groupToRelationsMapItem.second) {
+            relations.insert(relation);
         }
-        groupToRelationsMap[groupToRelationsMapItem.first] = newRelationSet;
+        groupToRelationsMap[groupToRelationsMapItem.first] = relations;
     }
 
-    for (auto &relationToGroupMapItem : copyMe.relationToGroupMap) {
+    for(auto &relationToGroupMapItem : copyMe.relationToGroupMap) {
         relationToGroupMap[relationToGroupMapItem.first] = relationToGroupMapItem.second;
     }
 }
@@ -29,32 +29,24 @@ Statistics::~Statistics() {
 }
 
 void Statistics::AddRel(char *relName, int numTuples) {
-
-    // If the relation is not present. Add new relation and corresponding entries in map.
-    if (groupToRelationsMap.find(relName) == groupToRelationsMap.end()) {
-        unordered_set<string> newRelationSet;
-        newRelationSet.insert(relName);
-
+    if(groupToRelationsMap.find(relName) == groupToRelationsMap.end()) {// If the relation is not present. Add new relation and corresponding entries in map.
+        unordered_set<string> relations;
+        relations.insert(relName);
         relationToGroupMap[relName] = relName;
-        groupToRelationsMap[relName] = newRelationSet;
+        groupToRelationsMap[relName] = relations;
         groupTupleCountMap[relName] = numTuples;
-
-        // If the relation is not yet joined, update the number of tuples.
-    } else if (relationToGroupMap[relName] == relName) {
+    } else if (relationToGroupMap[relName] == relName) { // If the relation is not yet joined, update the number of tuples.
         groupTupleCountMap[relName] = numTuples;
-
-        // Otherwise throw an error, as table is already joined.
-    } else {
+    } else {// Otherwise throw an error, as table is already joined.
         cerr << "Relation is already joined with some table.\n";
         exit(1);
     }
 }
 
 void Statistics::AddAtt(char *relName, char *attName, int numDistincts) {
-    string attNameWithRelName = string(relName) + "." + attName;
+    string attIdentifier = string(relName) + "." + attName;
 
-    if (attDistinctCountMap.find(attNameWithRelName) != attDistinctCountMap.end()
-        && relationToGroupMap[relName] != relName) {
+    if (attDistinctCountMap.find(attIdentifier) != attDistinctCountMap.end() && relationToGroupMap[relName] != relName) {
         cerr << "Relation is already joined with some table. Hence attribute can't be updated.\n";
         exit(1);
     }
@@ -62,23 +54,21 @@ void Statistics::AddAtt(char *relName, char *attName, int numDistincts) {
     if (numDistincts == -1) {
         numDistincts = groupTupleCountMap[relationToGroupMap[relName]];
     }
-    attDistinctCountMap[attNameWithRelName] = numDistincts;
+    attDistinctCountMap[attIdentifier] = numDistincts;
 }
 
 void Statistics::CopyRel(char *oldName, char *newName) {
 
-    // Add new relation.
     AddRel(newName, groupTupleCountMap[relationToGroupMap[oldName]]);
 
-    // Add attributes in the new relation.
-    for (auto attDistinctCountMapItem : attDistinctCountMap) {
-        string attNameWithRelName = attDistinctCountMapItem.first;
-        string relName = attNameWithRelName.substr(0, attNameWithRelName.find('.'));
+    for(auto attDistinctCountMapItem : attDistinctCountMap) {
+        string attIdentifier = attDistinctCountMapItem.first;
+        string relation = attIdentifier.substr(0, attIdentifier.find('.'));
 
-        if (relName == string(oldName)) {
-            string attName = attNameWithRelName.substr(attNameWithRelName.find('.') + 1);
-            attNameWithRelName = string(newName) + "." + attName;
-            attDistinctCountMap[attNameWithRelName] = attDistinctCountMapItem.second;
+        if(relation == string(oldName)) {
+            string attName = attIdentifier.substr(attIdentifier.find('.') + 1);
+            attIdentifier = string(newName) + "." + attName;
+            attDistinctCountMap[attIdentifier] = attDistinctCountMapItem.second;
         }
     }
 }
@@ -93,10 +83,10 @@ void Statistics::Read(char *fromWhere) {
 
     getline(fIn, readLine);
     getline(fIn, readLine);
-    int setNameToRelationMapSize = stoi(readLine);
+    int size = stoi(readLine);
     groupTupleCountMap.clear();
-    for (int i = 0; i < setNameToRelationMapSize; i++) {
-        getline(fIn, readLine, '=');
+    for (int i = 0; i < size; i++) {
+        getline(fIn, readLine);
         string groupName = readLine;
         getline(fIn, readLine);
         int numOfTuples = stoi(readLine);
@@ -105,46 +95,45 @@ void Statistics::Read(char *fromWhere) {
 
     getline(fIn, readLine);
     getline(fIn, readLine);
-    int attDistinctCountMapSize = stoi(readLine);
+    size = stoi(readLine);
     attDistinctCountMap.clear();
-    for (int i = 0; i < attDistinctCountMapSize; i++) {
-        getline(fIn, readLine, '=');
-        string attName = readLine;
+    for (int i = 0; i < size; i++) {
+        getline(fIn, readLine);
+        string attIdentifier = readLine;
         getline(fIn, readLine);
         int numOfDistinct = stoi(readLine);
-        attDistinctCountMap[attName] = numOfDistinct;
+        attDistinctCountMap[attIdentifier] = numOfDistinct;
     }
 
     getline(fIn, readLine);
     getline(fIn, readLine);
-    int setNameToSetOfRelationsMapSize = stoi(readLine);
+    size = stoi(readLine);
     groupToRelationsMap.clear();
-    for (int i = 0; i < setNameToSetOfRelationsMapSize; i++) {
-        getline(fIn, readLine, '=');
+    for (int i = 0; i < size; i++) {
+        getline(fIn, readLine);
         string groupName = readLine;
 
-        unordered_set<string> newRelationSet;
-        groupToRelationsMap[groupName] = newRelationSet;
-
+        unordered_set<string> relations;
         getline(fIn, readLine);
         stringstream s_stream(readLine);
-
         while (s_stream.good()) {
-            getline(s_stream, readLine, ',');
-            groupToRelationsMap[groupName].insert(readLine);
+            getline(s_stream, readLine, '|');
+            relations.insert(readLine);
         }
+        
+        groupToRelationsMap[groupName] = relations;
     }
 
     getline(fIn, readLine);
     getline(fIn, readLine);
-    int relNameToSetNameMapSize = stoi(readLine);
+    size = stoi(readLine);
     relationToGroupMap.clear();
-    for (int i = 0; i < attDistinctCountMapSize; i++) {
-        getline(fIn, readLine, '=');
-        string relName = readLine;
+    for (int i = 0; i < size; i++) {
+        getline(fIn, readLine);
+        string relation = readLine;
         getline(fIn, readLine);
         string groupName = readLine;
-        relationToGroupMap[relName] = groupName;
+        relationToGroupMap[relation] = groupName;
     }
 
 }
@@ -153,33 +142,37 @@ void Statistics::Write(char *fromWhere) {
     ofstream fOut;
     fOut.open(fromWhere);
 
-    fOut << "**************** Group Relations *****************\n";
-    fOut << groupTupleCountMap.size() << "\n";
-    for (auto &x: groupTupleCountMap) {
-        fOut << x.first << "=" << x.second << "\n";
+    fOut << "Group Tuple Count -->" << endl;
+    fOut << groupTupleCountMap.size() << endl;
+    for (auto &i: groupTupleCountMap) {
+        fOut << i.first << endl;
+        fOut << i.second << endl;
     }
 
-    fOut << "**************** Attributes ******************\n";
-    fOut << attDistinctCountMap.size() << "\n";
-    for (auto &x: attDistinctCountMap) {
-        fOut << x.first << "=" << x.second << "\n";
+    fOut << "Attributes -->" << endl;
+    fOut << attDistinctCountMap.size() << endl;
+    for (auto &i: attDistinctCountMap) {
+        fOut << i.first << endl;
+        fOut << i.second << endl;
     }
 
-    fOut << "****************** GroupName to Relations ****************\n";
-    fOut << groupToRelationsMap.size() << "\n";
-    for (auto &x: groupToRelationsMap) {
-        auto secondIterator = x.second.begin();
-        fOut << x.first << "=" << *(secondIterator);
-        while (++secondIterator != x.second.end()) {
-            fOut << "," << *(secondIterator);
+    fOut << "GroupName to Relations -->" << endl;
+    fOut << groupToRelationsMap.size() << endl;
+    for (auto &i: groupToRelationsMap) {
+        auto j = i.second.begin();
+        fOut << i.first << endl;
+        fOut << *(j);
+        while (++j != i.second.end()) {
+            fOut << "|" << *(j);
         }
-        fOut << "\n";
+        fOut << endl;
     }
 
-    fOut << "******************** Relation Name to Group Name *****************\n";
-    fOut << relationToGroupMap.size() << "\n";
-    for (auto &x: relationToGroupMap) {
-        fOut << x.first << "=" << x.second << "\n";
+    fOut << "Relation Name to Group Name -->" << endl;
+    fOut << relationToGroupMap.size() << endl;
+    for (auto &i: relationToGroupMap) {
+        fOut << i.first << endl;
+        fOut << i.second << endl;
     }
 }
 

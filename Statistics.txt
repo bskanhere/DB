@@ -1,38 +1,20 @@
-**************** Group Relations *****************
-3
-lineitem&part=21432.9
-supplier&part&partsupp=4
-lineitem&customer&orders&nation=2
-**************** Attributes ******************
-16
-lineitem.l_shipmode=7
-lineitem.l_shipinstruct=4
-lineitem.l_partkey=200000
-nation.n_nationkey=25
-orders.o_orderkey=1500000
-orders.o_orderdate=150000
-part.p_container=40
-customer.c_nationkey=25
-customer.c_custkey=150000
-part.p_name=199996
-part.p_partkey=200000
-partsupp.ps_partkey=200000
-orders.o_custkey=150000
-partsupp.ps_suppkey=10000
-lineitem.l_orderkey=1500000
-supplier.s_suppkey=10000
-****************** GroupName to Relations ****************
-3
-lineitem&part=part,lineitem
-supplier&part&partsupp=part,partsupp,supplier
-lineitem&customer&orders&nation=customer,orders,lineitem,nation
-******************** Relation Name to Group Name *****************
-8
-supplier=supplier&part&partsupp
-partsupp=supplier&part&partsupp
-orders=lineitem&customer&orders&nation
-part=lineitem&part
-=
-customer=lineitem&customer&orders&nation
-lineitem=lineitem&part
-nation=lineitem&customer&orders&nation
+Group Tuple Count -->
+1
+supplier&partsupp
+800000
+Attributes -->
+2
+partsupp.ps_suppkey
+10000
+supplier.s_suppkey
+10000
+GroupName to Relations -->
+1
+supplier&partsupp
+partsupp|supplier
+Relation Name to Group Name -->
+2
+partsupp
+supplier&partsupp
+supplier
+supplier&partsupp
