@@ -186,33 +186,29 @@ void Statistics::Apply(struct AndList *parseTree, char *relNames[], int numToJoi
     ValidateApplyOnRelations(&relNamesSet);
     PreProcessApplyOnAttributes(parseTree, &relNamesSet);
 
-    string resultantGroupName;
-    unordered_map<string, double> attNameToProbabilitiesMap;
+    string finalGroupName;
+    unordered_map<string, double> attProbabilityMap;
     while (parseTree) {
-        attNameToProbabilitiesMap.clear();
+        attProbabilityMap.clear();
 
         OrList *orList = parseTree->left;
         while (orList) {
-            ComparisonOp *currentComparisonOp = orList->left;
-            Operand *leftOperand = currentComparisonOp->left;
-            Operand *rightOperand = currentComparisonOp->right;
-            int comparisonOperator = currentComparisonOp->code;
 
             // if both side of a operator, there is a name, then Join the two tables.
-            if (leftOperand->code == NAME && rightOperand->code == NAME) {
+            if(orList->left->left->code == NAME && orList->left->right->code == NAME) {
 
-                if (comparisonOperator != EQUALS) {
+                if (orList->left->code != EQUALS) {
                     cerr << "Join is not implemented for other than Equals operator\n";
                     exit(1);
                 }
 
-                string leftAttNameWithRelName = string(leftOperand->value);
+                string leftAttNameWithRelName = string(orList->left->left->value);
                 int numOfDistinctInLeftAtt = attDistinctCountMap[leftAttNameWithRelName];
                 string leftRelName = leftAttNameWithRelName.substr(0, leftAttNameWithRelName.find('.'));
                 string leftGroupName = relationToGroupMap[leftRelName];
                 double numOfTuplesInLeftGroup = groupTupleCountMap[leftGroupName];
 
-                string rightAttNameWithRelName = string(rightOperand->value);
+                string rightAttNameWithRelName = string(orList->left->right->value);
                 int numOfDistinctInRightAtt = attDistinctCountMap[rightAttNameWithRelName];
                 string rightRelName = rightAttNameWithRelName.substr(0, rightAttNameWithRelName.find('.'));
                 string rightGroupName = relationToGroupMap[rightRelName];
@@ -256,58 +252,56 @@ void Statistics::Apply(struct AndList *parseTree, char *relNames[], int numToJoi
                 groupToRelationsMap.erase(rightGroupName);
 
                 groupToRelationsMap[newGroupName] = newRelationSet;
-                resultantGroupName = newGroupName;
+                finalGroupName = newGroupName;
             }
                 // Otherwise it is a select operation.
-            else if (leftOperand->code == NAME ^ rightOperand->code == NAME) {
-                Operand *nameOperand = leftOperand->code == NAME ? leftOperand : rightOperand;
-                string attNameWithRelName = string(nameOperand->value);
-                string relName = attNameWithRelName.substr(0, attNameWithRelName.find('.'));
-                if (currentComparisonOp->code == EQUALS) {
-                    double probabilityFraction = 1.0 / attDistinctCountMap[attNameWithRelName];
-                    if (attNameToProbabilitiesMap.find(attNameWithRelName) == attNameToProbabilitiesMap.end()) {
-                        attNameToProbabilitiesMap[attNameWithRelName] = probabilityFraction;
+            else if (orList->left->left->code == NAME ^ orList->left->right->code == NAME) {
+                Operand *nameOperand = orList->left->left->code == NAME ? orList->left->left : orList->left->right;
+                string attIdentifier = string(nameOperand->value);
+                string relName = attIdentifier.substr(0, attIdentifier.find('.'));
+                if (orList->left->code == EQUALS) {
+                    double attProbability = 1.0 / attDistinctCountMap[attIdentifier];
+                    if (attProbabilityMap.find(attIdentifier) == attProbabilityMap.end()) {
+                        attProbabilityMap[attIdentifier] = attProbability;
                     } else {
-                        attNameToProbabilitiesMap[attNameWithRelName] += probabilityFraction;
+                        attProbabilityMap[attIdentifier] += attProbability;
                     }
                 } else {
-                    if (attNameToProbabilitiesMap.find(attNameWithRelName) == attNameToProbabilitiesMap.end()) {
-                        attNameToProbabilitiesMap[attNameWithRelName] = (1.0 / 3.0);
-                    } else {
-
+                    if (attProbabilityMap.find(attIdentifier) == attProbabilityMap.end()) {
+                        attProbabilityMap[attIdentifier] = (1.0 / 3.0);
                     }
                 }
-                resultantGroupName = relationToGroupMap[relName];
+                finalGroupName = relationToGroupMap[relName];
             } else {
-                cerr << "left operand " << string(leftOperand->value) << " and right operand "
-                     << string(rightOperand->value) << " are not valid.\n";
+                cerr << "left operand " << string(orList->left->left->value) << " and right operand "
+                     << string(orList->left->right->value) << " are not valid.\n";
                 exit(1);
             }
             orList = orList->rightOr;
         }
 
-        if (!attNameToProbabilitiesMap.empty()) {
-            double numOfTuples = groupTupleCountMap[resultantGroupName];
-            double multiplicationFactor = 0.0;
+        if (!attProbabilityMap.empty()) {
+            double numOfTuples = groupTupleCountMap[finalGroupName];
+            double unionProbablity = 0.0;
 
-            if (attNameToProbabilitiesMap.size() == 1) {
-                multiplicationFactor = (*attNameToProbabilitiesMap.begin()).second;
+            if (attProbabilityMap.size() == 1) {
+                unionProbablity = (*attProbabilityMap.begin()).second;
             } else {
-                double additionFactor = 0.0;
-                double subtractionFactor = 1.0;
+                double sum = 0.0;
+                double mul = 1.0;
 
-                for (const auto &attNameToProbabilitiesMapItem : attNameToProbabilitiesMap) {
-                    additionFactor += attNameToProbabilitiesMapItem.second;
-                    subtractionFactor *= attNameToProbabilitiesMapItem.second;
+                for (const auto &attProbabilityMapItem : attProbabilityMap) {
+                    sum += attProbabilityMapItem.second;
+                    mul *= attProbabilityMapItem.second;
                 }
-                multiplicationFactor = additionFactor - subtractionFactor;
+                unionProbablity = sum - mul;
 
             }
 
-            numOfTuples *= multiplicationFactor;
+            numOfTuples *= unionProbablity;
 
 
-            groupTupleCountMap[resultantGroupName] = numOfTuples;
+            groupTupleCountMap[finalGroupName] = numOfTuples;
         }
         parseTree = parseTree->rightAnd;
     }
@@ -315,20 +309,20 @@ void Statistics::Apply(struct AndList *parseTree, char *relNames[], int numToJoi
 }
 
 double Statistics::Estimate(struct AndList *parseTree, char **relNames, int numToJoin) {
-    Statistics dummy(*this);
+    Statistics temp(*this);
 
-    dummy.Apply(parseTree, relNames, numToJoin);
-    unordered_set<string> groupNames;
+    temp.Apply(parseTree, relNames, numToJoin);
+    unordered_set<string> groups;
     for (int i = 0; i < numToJoin; i++) {
-        groupNames.insert(dummy.relationToGroupMap[relNames[i]]);
+        groups.insert(temp.relationToGroupMap[relNames[i]]);
     }
 
-    if (groupNames.size() != 1) {
+    if (groups.size() != 1) {
         cerr << "Error while estimating.\n";
         exit(1);
     }
 
-    return dummy.groupTupleCountMap[*groupNames.begin()];
+    return temp.groupTupleCountMap[*groups.begin()];
 }
 
 void Statistics::ValidateApplyOnRelations(unordered_set<string> *relNames) {

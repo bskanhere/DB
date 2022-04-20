@@ -1,0 +1,169 @@
+Group Tuple Count -->
+1
+lineitem
+857316
+Attributes -->
+3
+lineitem.l_shipmode
+7
+lineitem.l_discount
+11
+lineitem.l_returnflag
+3
+GroupName to Relations -->
+1
+lineitem
+lineitem
+Relation Name to Group Name -->
+1
+lineitem
+lineitem
+***************************************************************************************************************************************
+Group Tuple Count -->
+1
+customer&orders&nation
+1.5e+06
+Attributes -->
+4
+nation.n_nationkey
+25
+customer.c_nationkey
+25
+customer.c_custkey
+150000
+orders.o_custkey
+150000
+GroupName to Relations -->
+1
+customer&orders&nation
+nation|customer|orders
+Relation Name to Group Name -->
+3
+nation
+customer&orders&nation
+customer
+customer&orders&nation
+orders
+customer&orders&nation
+***************************************************************************************************************************************
+Group Tuple Count -->
+1
+lineitem&customer&orders
+400081
+Attributes -->
+6
+lineitem.l_orderkey
+1500000
+orders.o_custkey
+150000
+orders.o_orderdate
+150000
+orders.o_orderkey
+1500000
+customer.c_mktsegment
+5
+customer.c_custkey
+150000
+GroupName to Relations -->
+1
+lineitem&customer&orders
+customer|orders|lineitem
+Relation Name to Group Name -->
+3
+lineitem
+lineitem&customer&orders
+orders
+lineitem&customer&orders
+customer
+lineitem&customer&orders
+***************************************************************************************************************************************
+Group Tuple Count -->
+1
+lineitem&customer&orders&nation
+2.00041e+06
+Attributes -->
+8
+nation.n_nationkey
+25
+customer.c_custkey
+150000
+customer.c_nationkey
+25
+customer.c_mktsegment
+5
+orders.o_orderkey
+1500000
+orders.o_orderdate
+150000
+orders.o_custkey
+150000
+lineitem.l_orderkey
+1500000
+GroupName to Relations -->
+1
+lineitem&customer&orders&nation
+nation|lineitem|orders|customer
+Relation Name to Group Name -->
+4
+nation
+lineitem&customer&orders&nation
+customer
+lineitem&customer&orders&nation
+orders
+lineitem&customer&orders&nation
+lineitem
+lineitem&customer&orders&nation
+***************************************************************************************************************************************
+Group Tuple Count -->
+2
+lineitem&part
+21432.9
+lineitem&customer&orders&nation
+2
+Attributes -->
+13
+lineitem.l_shipinstruct
+4
+part.p_partkey
+200000
+lineitem.l_orderkey
+1500000
+orders.o_custkey
+150000
+lineitem.l_shipmode
+7
+lineitem.l_partkey
+200000
+part.p_container
+40
+orders.o_orderdate
+150000
+orders.o_orderkey
+1500000
+customer.c_mktsegment
+5
+customer.c_nationkey
+25
+customer.c_custkey
+150000
+nation.n_nationkey
+25
+GroupName to Relations -->
+2
+lineitem&part
+part|lineitem
+lineitem&customer&orders&nation
+customer|orders|lineitem|nation
+Relation Name to Group Name -->
+5
+part
+lineitem&part
+lineitem
+lineitem&part
+orders
+lineitem&customer&orders&nation
+customer
+lineitem&customer&orders&nation
+nation
+lineitem&customer&orders&nation
+***************************************************************************************************************************************
