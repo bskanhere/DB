@@ -27,16 +27,12 @@ private:
     unordered_map<string, unordered_set<string> > groupToRelationsMap;
     unordered_map<string, string> relationToGroupMap;
 
-    void ValidateApplyOnRelations(unordered_set<string> *relNames);
-
-    void PreProcessApplyOnAttributes(struct AndList *parseTree, unordered_set<string> *relNames);
-
-    void PreProcessNameOperand(Operand *operand, unordered_set<string> *relNames);
+    void ProcessAttributeName(Operand *operand, unordered_set<string> *relNames);
 
 public:
     Statistics();
 
-    Statistics(Statistics &copyMe);     // Performs deep copy
+    Statistics(Statistics &copyMe);
 
     ~Statistics();
 

@@ -29,16 +29,16 @@ Statistics::~Statistics() {
 }
 
 void Statistics::AddRel(char *relName, int numTuples) {
-    if(groupToRelationsMap.find(relName) == groupToRelationsMap.end()) {// If the relation is not present. Add new relation and corresponding entries in map.
+    if(groupToRelationsMap.find(relName) == groupToRelationsMap.end()) {
         unordered_set<string> relations;
         relations.insert(relName);
         relationToGroupMap[relName] = relName;
         groupToRelationsMap[relName] = relations;
         groupTupleCountMap[relName] = numTuples;
-    } else if (relationToGroupMap[relName] == relName) { // If the relation is not yet joined, update the number of tuples.
+    } else if(relationToGroupMap[relName] == relName) {
         groupTupleCountMap[relName] = numTuples;
-    } else {// Otherwise throw an error, as table is already joined.
-        cerr << "Relation is already joined with some table.\n";
+    } else {
+        cerr << "Relation is joined already" << endl;
         exit(1);
     }
 }
@@ -46,12 +46,11 @@ void Statistics::AddRel(char *relName, int numTuples) {
 void Statistics::AddAtt(char *relName, char *attName, int numDistincts) {
     string attIdentifier = string(relName) + "." + attName;
 
-    if (attDistinctCountMap.find(attIdentifier) != attDistinctCountMap.end() && relationToGroupMap[relName] != relName) {
-        cerr << "Relation is already joined with some table. Hence attribute can't be updated.\n";
+    if(attDistinctCountMap.find(attIdentifier) != attDistinctCountMap.end() && relationToGroupMap[relName] != relName) {
+        cerr << "Relation is joined already so cant upadte attribute."  << endl;
         exit(1);
     }
-
-    if (numDistincts == -1) {
+    if(numDistincts == -1) {
         numDistincts = groupTupleCountMap[relationToGroupMap[relName]];
     }
     attDistinctCountMap[attIdentifier] = numDistincts;
@@ -181,11 +180,11 @@ void Statistics::Apply(struct AndList *parseTree, char *relNames[], int numToJoi
     unordered_set<string> relationsInResult;
 
     
-    //validation
+    //validation of realtions in Parse Tree
     for (int i = 0; i < numToJoin; i++) {
         relNamesSet.insert(relNames[i]);
         if (relationToGroupMap.find(relNames[i]) == relationToGroupMap.end()) {
-            cerr << "Relation " << relNames[i] << " is not present in statistics.\n";
+            cerr << "Relation " << relNames[i] << " is not present in statistics" << endl;
             exit(1);
         }
         for (const string &relName : groupToRelationsMap[relationToGroupMap[relNames[i]]]) {
@@ -198,11 +197,9 @@ void Statistics::Apply(struct AndList *parseTree, char *relNames[], int numToJoi
     }
 
     if (!relationsInResult.empty()) {
-        cerr << "Relation association doesn't make sense\n";
+        cerr << "Associated Relations seem wrong"  << endl;
         exit(1);
     }
-
-    PreProcessApplyOnAttributes(parseTree, &relNamesSet);
 
     string finalGroupName;
     unordered_map<string, double> attProbabilityMap;
@@ -211,12 +208,13 @@ void Statistics::Apply(struct AndList *parseTree, char *relNames[], int numToJoi
 
         OrList *orList = parseTree->left;
         while (orList) {
-
-            // if both side of a operator, there is a name, then Join the two tables.
             if(orList->left->left->code == NAME && orList->left->right->code == NAME) {
 
+                ProcessAttributeName(orList->left->left, &relNamesSet);
+                ProcessAttributeName(orList->left->right, &relNamesSet);
+
                 if (orList->left->code != EQUALS) {
-                    cerr << "Join is not implemented for other than Equals operator\n";
+                    cerr << "Join should be implemented only for EQUAL." << endl;
                     exit(1);
                 }
 
@@ -232,31 +230,20 @@ void Statistics::Apply(struct AndList *parseTree, char *relNames[], int numToJoi
                 string rightGroupName = relationToGroupMap[rightRelName];
                 double numOfTuplesInRightGroup = groupTupleCountMap[rightGroupName];
 
-                if (leftGroupName == rightGroupName) {
-                    cerr << "Table " << leftRelName << " is already joined with " << rightGroupName << ".\n";
-                    exit(1);
-                }
-
                 double numOfTuplesPerAttValueInLeft = (numOfTuplesInLeftGroup / numOfDistinctInLeftAtt);
                 double numOfTuplesPerAttValueInRight = (numOfTuplesInRightGroup / numOfDistinctInRightAtt);
 
-                double numOfTuplesAfterJoin = numOfTuplesPerAttValueInLeft
-                                              * numOfTuplesPerAttValueInRight
-                                              * min(numOfDistinctInLeftAtt, numOfDistinctInRightAtt);
+                double numOfTuplesAfterJoin = numOfTuplesPerAttValueInLeft * numOfTuplesPerAttValueInRight * min(numOfDistinctInLeftAtt, numOfDistinctInRightAtt);
 
                 string newGroupName;
                 newGroupName.append(leftGroupName).append("&").append(rightGroupName);
 
-                // Delete leftGroups and rightGroups for Different map.
                 groupTupleCountMap.erase(leftGroupName);
                 groupTupleCountMap.erase(rightGroupName);
 
-                // Create new group relation.
                 groupTupleCountMap[newGroupName] = numOfTuplesAfterJoin;
                 unordered_set<string> newRelationSet;
 
-
-                // Change groups of leftGroups and rightGroups relations.
                 for (const string &relName : groupToRelationsMap[leftGroupName]) {
                     relationToGroupMap[relName] = newGroupName;
                     newRelationSet.insert(relName);
@@ -271,10 +258,10 @@ void Statistics::Apply(struct AndList *parseTree, char *relNames[], int numToJoi
 
                 groupToRelationsMap[newGroupName] = newRelationSet;
                 finalGroupName = newGroupName;
-            }
-                // Otherwise it is a select operation.
-            else if (orList->left->left->code == NAME ^ orList->left->right->code == NAME) {
+            } else if (orList->left->left->code == NAME ^ orList->left->right->code == NAME) {
                 Operand *nameOperand = orList->left->left->code == NAME ? orList->left->left : orList->left->right;
+                ProcessAttributeName(nameOperand, &relNamesSet);
+
                 string attIdentifier = string(nameOperand->value);
                 string relName = attIdentifier.substr(0, attIdentifier.find('.'));
                 if (orList->left->code == EQUALS) {
@@ -291,8 +278,7 @@ void Statistics::Apply(struct AndList *parseTree, char *relNames[], int numToJoi
                 }
                 finalGroupName = relationToGroupMap[relName];
             } else {
-                cerr << "left operand " << string(orList->left->left->value) << " and right operand "
-                     << string(orList->left->right->value) << " are not valid.\n";
+                cerr << "Invalid Operands" << endl;
                 exit(1);
             }
             orList = orList->rightOr;
@@ -313,12 +299,8 @@ void Statistics::Apply(struct AndList *parseTree, char *relNames[], int numToJoi
                     mul *= attProbabilityMapItem.second;
                 }
                 unionProbablity = sum - mul;
-
             }
-
             numOfTuples *= unionProbablity;
-
-
             groupTupleCountMap[finalGroupName] = numOfTuples;
         }
         parseTree = parseTree->rightAnd;
@@ -336,83 +318,32 @@ double Statistics::Estimate(struct AndList *parseTree, char **relNames, int numT
     }
 
     if (groups.size() != 1) {
-        cerr << "Error while estimating.\n";
+        cerr << "Error" << endl;
         exit(1);
     }
 
     return temp.groupTupleCountMap[*groups.begin()];
 }
 
-void Statistics::ValidateApplyOnRelations(unordered_set<string> *relNames) {
-    unordered_set<string> setNamesToJoin;
-    for (const string &relName : *relNames) {
-        if (relationToGroupMap.find(relName) == relationToGroupMap.end()) {
-            cerr << "Relation " << relName << " is not present in statistics.\n";
-            exit(1);
-        }
-        setNamesToJoin.insert(relationToGroupMap[relName]);
-    }
-
-    unordered_set<string> relationsInResult;
-    for (const string &setName : setNamesToJoin) {
-        for (const string &relName : groupToRelationsMap[setName]) {
-            relationsInResult.insert(relName);
-        }
-    }
-
-    for (const string &relName : *relNames) {
-        relationsInResult.erase(relName);
-    }
-
-    if (!relationsInResult.empty()) {
-        cerr << "Relation association doesn't make sense\n";
-        exit(1);
-    }
-}
-
-void Statistics::PreProcessApplyOnAttributes(struct AndList *parseTree, unordered_set<string> *relNames) {
-    while (parseTree) {
-        OrList *orList = parseTree->left;
-        while (orList) {
-            if (orList->left->left->code == NAME) {
-                PreProcessNameOperand(orList->left->left, relNames);
-            }
-            if (orList->left->right->code == NAME) {
-                PreProcessNameOperand(orList->left->right, relNames);
-            }
-            orList = orList->rightOr;
-        }
-        parseTree = parseTree->rightAnd;
-    }
-}
-
-void Statistics::PreProcessNameOperand(Operand *operand, unordered_set<string> *relNames) {
+void Statistics::ProcessAttributeName(Operand *operand, unordered_set<string> *relNames) {
     string operandValue = operand->value;
-
-    // If operandValue contains relation name i.e name is of the form "relName.attName".
-    if (operandValue.find('.') != string::npos) {
-        string relationName = operandValue.substr(0, operandValue.find('.'));
-        if (attDistinctCountMap.find(operandValue) == attDistinctCountMap.end()) {
-            cerr << "Attribute " << string(operandValue) << " is not present in Statistics.\n";
-        }
-        if (relNames->find(relationName) == relNames->end()) {
-            cerr << "Attribute is not linked with any rel names given.\n";
-        }
-    } else {
-        bool relFound = false;
+    if (operandValue.find('.') == string::npos) {
+        bool found = false;
         for (const string &relName : *relNames) {
-            string attributeNameWithRelName = relName + "." + string(operandValue);
-            if (attDistinctCountMap.find(attributeNameWithRelName) != attDistinctCountMap.end()) {
-                relFound = true;
-                char *newOperandValue = new char[attributeNameWithRelName.size() + 1];
-                strcpy(newOperandValue, attributeNameWithRelName.c_str());
+            string attIdentifier = relName + "." + string(operandValue);
+            if (attDistinctCountMap.find(attIdentifier) != attDistinctCountMap.end()) {
+                found = true;
+                char *newOperandValue = new char[attIdentifier.size() + 1];
+                strcpy(newOperandValue, attIdentifier.c_str());
                 operand->value = newOperandValue;
                 break;
+
             }
         }
-        if (!relFound) {
-            cerr << "No relation contains attribute " << operandValue << ".\n";
+        if (!found) {
+            cerr << "No relation contains given attribute " << operandValue << endl;
             exit(1);
         }
+
     }
 }
