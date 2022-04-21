@@ -178,12 +178,30 @@ void Statistics::Write(char *fromWhere) {
 
 void Statistics::Apply(struct AndList *parseTree, char *relNames[], int numToJoin) {
     unordered_set<string> relNamesSet;
+    unordered_set<string> relationsInResult;
+
+    
+    //validation
     for (int i = 0; i < numToJoin; i++) {
         relNamesSet.insert(relNames[i]);
+        if (relationToGroupMap.find(relNames[i]) == relationToGroupMap.end()) {
+            cerr << "Relation " << relNames[i] << " is not present in statistics.\n";
+            exit(1);
+        }
+        for (const string &relName : groupToRelationsMap[relationToGroupMap[relNames[i]]]) {
+            relationsInResult.insert(relName);
+        }
     }
 
-    //validation
-    ValidateApplyOnRelations(&relNamesSet);
+    for (const string &relName : relNamesSet) {
+        relationsInResult.erase(relName);
+    }
+
+    if (!relationsInResult.empty()) {
+        cerr << "Relation association doesn't make sense\n";
+        exit(1);
+    }
+
     PreProcessApplyOnAttributes(parseTree, &relNamesSet);
 
     string finalGroupName;

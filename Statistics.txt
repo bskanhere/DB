@@ -1,46 +1,20 @@
 Group Tuple Count -->
-2
-lineitem&orders
-2.0004e+06
-lineitem&customer&orders&nation
-2
+1
+lineitem
+857316
 Attributes -->
-11
+3
 lineitem.l_shipmode
 7
-orders.o_orderkey
-1500000
-orders.o_orderdate
-150000
 lineitem.l_discount
 11
-orders.o_custkey
-150000
 lineitem.l_returnflag
 3
-customer.c_nationkey
-25
-customer.c_custkey
-150000
-lineitem.l_orderkey
-1500000
-lineitem.l_receiptdate
-1500000
-nation.n_nationkey
-25
 GroupName to Relations -->
-2
-lineitem&orders
-orders|lineitem
-lineitem&customer&orders&nation
-customer|orders|lineitem|nation
-Relation Name to Group Name -->
-4
+1
 lineitem
-lineitem&orders
-customer
-lineitem&customer&orders&nation
-orders
-lineitem&orders
-nation
-lineitem&customer&orders&nation
+lineitem
+Relation Name to Group Name -->
+1
+lineitem
+lineitem

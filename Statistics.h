@@ -2,7 +2,7 @@
 #define STATISTICS_
 
 #include "ParseTree.h"
-
+#include <gtest/gtest_prod.h>
 #include <cstring>
 #include <string>
 #include <iostream>
@@ -15,7 +15,13 @@ using namespace std;
 
 class Statistics {
 
+
+
 private:
+    FRIEND_TEST(Statistics, SuccessfulAddRelationTest);
+    FRIEND_TEST(Statistics, SuccessfulAddAttributeTest);
+    FRIEND_TEST(Statistics, SuccessfulGroupRelationMapTest);
+    FRIEND_TEST(Statistics, SuccessfulUpdateRelationTest);
     unordered_map<string, double> groupTupleCountMap;
     unordered_map<string, int> attDistinctCountMap;
     unordered_map<string, unordered_set<string> > groupToRelationsMap;
