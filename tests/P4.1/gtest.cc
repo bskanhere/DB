@@ -1,5 +1,5 @@
 #include "gtest/gtest.h"
-#include "Statistics.h"
+#include "../../Statistics.h"
 
 TEST(Statistics, SuccessfulAddRelationTest){
 	Statistics s;
