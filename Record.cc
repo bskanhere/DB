@@ -486,3 +486,25 @@ void Record::MergeRecords(Record* left, Record* right) {
 	MergeRecords (left, right, numAttsLeft, numAttsRight, attsToKeep, numAttsLeft+numAttsRight, numAttsLeft); // merge the left and the right record
   	delete[] attsToKeep; // free attsToKeep
 }
+
+void Record::PrintAttValue(int pos, Type type) {
+    // use the i^th slot at the head of the record to get the
+    // offset to the correct attribute in the record
+    int pointer = ((int *) bits)[pos + 1];
+
+    // first is integer
+    if (type == Int) {
+        int *myInt = (int *) &(bits[pointer]);
+        cout << *myInt;
+
+        // then is a double
+    } else if (type == Double) {
+        double *myDouble = (double *) &(bits[pointer]);
+        cout << *myDouble;
+
+        // then is a character string
+    } else if (type == String) {
+        char *myString = (char *) &(bits[pointer]);
+        cout << myString;
+    }
+}

@@ -7,6 +7,11 @@
 #include "Function.h"
 #include <vector>
 
+
+static char *SUM_ATT_NAME = "SUM";
+static Attribute doubleAtt = {SUM_ATT_NAME, Double};
+static Schema sumSchema("sum_schema", 1, &doubleAtt);
+
 class RelationalOp {
 	public:
 	
