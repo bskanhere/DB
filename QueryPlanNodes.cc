@@ -35,13 +35,12 @@ void QueryPlanNode::Print() {
 SelectPipeQueryPlanNode::SelectPipeQueryPlanNode(QueryPlanNode *left, QueryPlanNode *right) : QueryPlanNode(left, right) {}
 
 void SelectPipeQueryPlanNode::Print() {
-    cout << " *********** " << "\n";
-    cout << "SELECT PIPE operation" << "\n";
+    cout << "******SELECT PIPE******" << "\n";
     QueryPlanNode::Print();
     cout << "\n";
 
     if (selOp) {
-        cout << "SELECTION CNF :" << "\n";
+        cout << "SELECTION CNF: ";
         selOp->Print(left->outputSchema, NULL, literal);
         cout << "\n";
     }
@@ -50,13 +49,12 @@ void SelectPipeQueryPlanNode::Print() {
 SelectFileQueryPlanNode::SelectFileQueryPlanNode(QueryPlanNode *left, QueryPlanNode *right) : QueryPlanNode(left, right) {}
 
 void SelectFileQueryPlanNode::Print() {
-    cout << " *********** " << "\n";
-    cout << "SELECT FILE operation" << "\n";
+    cout << "******SELECT FILE******" << "\n";
     QueryPlanNode::Print();
     cout << "\n";
 
     if (selOp) {
-        cout << "SELECTION CNF :" << "\n";
+        cout << "SELECTION CNF: ";
         selOp->Print(outputSchema, NULL, literal);
         cout << "\n";
     }
@@ -65,28 +63,22 @@ void SelectFileQueryPlanNode::Print() {
 ProjectQueryPlanNode::ProjectQueryPlanNode(QueryPlanNode *left, QueryPlanNode *right) : QueryPlanNode(left, right) {}
 
 void ProjectQueryPlanNode::Print() {
-    cout << " *********** " << "\n";
-    cout << "PROJECT operation" << "\n";
+    cout << "******PROJECT******" << "\n";
     QueryPlanNode::Print();
     cout << "Number of attributes Input: " << numAttsInput << "\n";
     cout << "Number of attributes Output: " << numAttsOutput << "\n";
-    cout << "Keep Me: ";
-    for (int i = 0; i < numAttsOutput; i++) {
-        cout << keepMe[i] << " ";
-    }
     cout << "\n";
 }
 
 SumQueryPlanNode::SumQueryPlanNode(QueryPlanNode *left, QueryPlanNode *right) : QueryPlanNode(left, right) {}
 
 void SumQueryPlanNode::Print() {
-    cout << " *********** " << "\n";
-    cout << "SUM operation" << "\n";
+    cout << "******SUM******" << "\n";
     QueryPlanNode::Print();
     cout << "\n";
 
     if (computeMe) {
-        cout << "FUNCTION" << "\n";
+        cout << "FUNCTION: ";
         computeMe->Print(left->outputSchema);
         cout << "\n";
         cout << "Distinct Function: " << distinctFunc << "\n";
@@ -97,12 +89,11 @@ void SumQueryPlanNode::Print() {
 JoinQueryPlanNode::JoinQueryPlanNode(QueryPlanNode *left, QueryPlanNode *right) : QueryPlanNode(left, right) {}
 
 void JoinQueryPlanNode::Print() {
-    cout << " *********** " << "\n";
-    cout << "JOIN operation" << "\n";
+    cout << "******JOIN******" << "\n";
     QueryPlanNode::Print();
     cout << "\n";
 
-    cout << "CNF: " << "\n";
+    cout << "Join CNF: ";
     if (selOp) {
         selOp->Print(left->outputSchema, right->outputSchema, literal);
         cout << "\n";
@@ -113,27 +104,25 @@ void JoinQueryPlanNode::Print() {
 DuplicateRemovalQueryPlanNode::DuplicateRemovalQueryPlanNode(QueryPlanNode *left, QueryPlanNode *right) : QueryPlanNode(left, right) {}
 
 void DuplicateRemovalQueryPlanNode::Print() {
-    cout << " *********** " << "\n";
-    cout << "DISTINCT operation" << "\n";
+    cout << "******DISTINCT******" << "\n";
     QueryPlanNode::Print();
 }
 
 GroupByQueryPlanNode::GroupByQueryPlanNode(QueryPlanNode *left, QueryPlanNode *right) : QueryPlanNode(left, right) {}
 
 void GroupByQueryPlanNode::Print() {
-    cout << " *********** " << "\n";
-    cout << "GROUP BY operation" << "\n";
+    cout << "******GROUP BY******" << "\n";
     QueryPlanNode::Print();
     cout << "\n";
 
     if (groupAtts) {
-        cout << "GROUPING ON" << "\n";
+        cout << "GROUPING ON: ";
         groupAtts->Print(left->outputSchema);
         cout << "\n";
     }
 
     if (computeMe) {
-        cout << "FUNCTION" << "\n";
+        cout << "FUNCTION: ";
         computeMe->Print(left->outputSchema);
         cout << "\n";
         cout << "Distinct Function: " << distinctFunc << "\n";

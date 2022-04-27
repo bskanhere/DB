@@ -5,34 +5,25 @@ QueryPlan::QueryPlan(Statistics *statistics, Query *query) {
     this->query = query;
 
     unordered_map<string, AndList *> tableSelectionAndList;
-    vector<AndList *> joins;
-    vector<AndList *> joins_arranged;
+    vector<AndList *> join;
+    vector<AndList *> minTupleCountJoin;
 
-    // Load all the tables using SelectFile RelOp.
     ProcessRelationFiles();
 
-    // Split the AndList into selection and joins.
-    FindSelectionAndJoins(&tableSelectionAndList, &joins);
+    FindSelectionAndJoins(&tableSelectionAndList, &join);
 
-    // Apply selection on tables using SelectPipe RelOp.
     ProcessSelect(&tableSelectionAndList);
 
-    // Rearrange joins, so that number of intermediate tuples generated will be minimum.
-    FindMinTupleJoin(&joins, &joins_arranged);
-    
-    // Apply joins on tables using Join RelOp.
-    ProcessJoins(&joins_arranged);
+    FindMinTupleJoin(&join, &minTupleCountJoin);
 
-    // Apply group by if it is in the query using GroupBy RelOp.
+    ProcessJoins(&minTupleCountJoin);
+
     ProcessGroupBy();
 
-    // Apply Function if it is in the query using Sum RelOp.
     ProcessSum();
 
-    // Apply Project using Project RelOp.
     ProcessProject();
 
-    // Apply Duplicate removal using DuplicateRemoval RelOp if distinct is present.
     ProcessDuplicateRemoval();
 }
 
@@ -157,7 +148,6 @@ void QueryPlan::ProcessSum() {
 }
 
 void QueryPlan::ProcessProject() {
-    
     NameList *attsToSelect = query->attsToSelect;
     if (query->finalFunction) {
         NameList *temp = new NameList();
@@ -304,10 +294,7 @@ void QueryPlan::FindMinTupleJoin(vector<AndList *> *join, vector<AndList *> *min
 }
 
 void BuildJoinPermutation(int *initialPermutation, int p, int size, vector<int *> *permutations) {
-    // if size becomes 1 then prints the obtained
-    // permutation
     if (p == 1) {
-        // Add new Permutation in the permutations vector.
         int *newPermutation = new int[size];
         for (int i = 0; i < size; i++) {
             newPermutation[i] = initialPermutation[i];
@@ -315,19 +302,12 @@ void BuildJoinPermutation(int *initialPermutation, int p, int size, vector<int *
         permutations->push_back(newPermutation);
         return;
     }
-
     for (int i = 0; i < p; i++) {
         BuildJoinPermutation(initialPermutation, p - 1, size, permutations);
-
-        // if size is odd, swap first and last
-        // element
-        if (p % 2 == 1)
-            swap(initialPermutation[0], initialPermutation[p - 1]);
-
-            // If size is even, swap ith and last
-            // element
+        if (p % 2 == 0)
+            swap(initialPermutation[i], initialPermutation[p - 1]);     
         else
-            swap(initialPermutation[i], initialPermutation[p - 1]);
+            swap(initialPermutation[0], initialPermutation[p - 1]);
     }
 }
 
@@ -339,9 +319,7 @@ void QueryPlan::Print() {
 void QueryPlan::PrintQueryPlanInOrder(QueryPlanNode *node) {
     if (node == nullptr)
         return;
-
     PrintQueryPlanInOrder(node->left);
     node->Print();
-    PrintQueryPlanInOrder(node->right);
-    
+    PrintQueryPlanInOrder(node->right);  
 }

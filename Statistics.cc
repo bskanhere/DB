@@ -224,20 +224,16 @@ void Statistics::Apply(struct AndList *parseTree, char *relNames[], int numToJoi
                 string leftGroupName = relationToGroupMap[leftRelName];
                 double numOfTuplesInLeftGroup = groupTupleCountMap[leftGroupName];
 
-                cout << numOfDistinctInLeftAtt << " " << numOfTuplesInLeftGroup << " " << leftGroupName << endl;
-
                 string rightAttNameWithRelName = string(orList->left->right->value);
                 int numOfDistinctInRightAtt = attDistinctCountMap[rightAttNameWithRelName];
                 string rightRelName = rightAttNameWithRelName.substr(0, rightAttNameWithRelName.find('.'));
                 string rightGroupName = relationToGroupMap[rightRelName];
                 double numOfTuplesInRightGroup = groupTupleCountMap[rightGroupName];
-                cout << numOfDistinctInRightAtt << " " << numOfTuplesInRightGroup << " " << rightGroupName << endl;
 
                 double numOfTuplesPerAttValueInLeft = (numOfTuplesInLeftGroup / numOfDistinctInLeftAtt);
                 double numOfTuplesPerAttValueInRight = (numOfTuplesInRightGroup / numOfDistinctInRightAtt);
 
                 double numOfTuplesAfterJoin = numOfTuplesPerAttValueInLeft * numOfTuplesPerAttValueInRight * min(numOfDistinctInLeftAtt, numOfDistinctInRightAtt);
-                cout << "Number of Tuples - " << numOfTuplesAfterJoin << endl;
                 string newGroupName;
                 newGroupName.append(leftGroupName).append("&").append(rightGroupName);
 
@@ -279,7 +275,6 @@ void Statistics::Apply(struct AndList *parseTree, char *relNames[], int numToJoi
                         attProbabilityMap[attIdentifier] = (1.0 / 3.0);
                     }
                 }
-                cout << "Probablity " << attProbabilityMap[attIdentifier] << " " << attDistinctCountMap[attIdentifier] << endl;
                 finalGroupName = relationToGroupMap[relName];
             } else {
                 cerr << "Invalid Operands" << endl;
