@@ -24,8 +24,8 @@ test3.out: Record.o Comparison.o ComparisonEngine.o Schema.o File.o DBFile.o Gen
 test4_1.out: Record.o Comparison.o Schema.o File.o Statistics.o y.tab.o lex.yy.o test4_1.o
 	$(CC) -o test4_1.out Record.o Comparison.o Schema.o File.o Statistics.o y.tab.o lex.yy.o test.o -ll
 
-test.out: QueryPlan.o RelOpPlanNode.o Statistics.o Record.o Comparison.o Schema.o Function.o y.tab.o lex.yy.o test.o
-	$(CC) -o test.out QueryPlan.o RelOpPlanNode.o Statistics.o Record.o Comparison.o Schema.o Function.o y.tab.o lex.yy.o test.o -ll
+test.out: QueryPlan.o QueryPlanNodes.o Statistics.o Record.o Comparison.o Schema.o Function.o y.tab.o lex.yy.o test.o QueryPlan.h
+	$(CC) -o test.out QueryPlan.o QueryPlanNodes.o Statistics.o Record.o Comparison.o Schema.o Function.o y.tab.o lex.yy.o test.o -ll
 
 gtest1.out: Record.o Comparison.o ComparisonEngine.o Schema.o File.o GenericDBFile.o HeapDBFile.o y.tab.o lex.yy.o gtest1.o
 	$(CC) -o gtest1.out Record.o Comparison.o ComparisonEngine.o Schema.o File.o GenericDBFile.o HeapDBFile.o y.tab.o lex.yy.o gtest.o -lfl -l pthread -lgtest
@@ -111,8 +111,8 @@ BigQ.o: BigQ.cc
 Statistics.o: Statistics.cc
 	$(CC) -g -c Statistics.cc
 
-RelOpPlanNode.o : RelOpPlanNode.cc
-	$(CC) -g -c RelOpPlanNode.cc
+QueryPlanNodes.o : QueryPlanNodes.cc
+	$(CC) -g -c QueryPlanNodes.cc
 
 QueryPlan.o : QueryPlan.cc
 	$(CC) -g -c QueryPlan.cc
