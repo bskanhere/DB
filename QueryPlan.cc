@@ -43,19 +43,13 @@ void QueryPlan::ProcessRelationFiles() {
     TableList *table = query->tables;
 
     while (table) {
-        // Create SelectFileNode RelOp.
         SelectFileQueryPlanNode *selectFileNode = new SelectFileQueryPlanNode(NULL, NULL);
-
-        // Create Schema with aliased attributes.
         Schema *schema = new Schema("catalog", table->tableName);
         schema->AliasAttributes(table->aliasAs);
-
         selectFileNode->outputSchema = schema;
         selectFileNode->outputPipeId = nextAvailablePipeId++;
-
         relationToGroupMap[table->aliasAs] = table->aliasAs;
         groupToQueryPlanNodeMap[table->aliasAs] = selectFileNode;
-
         table = table->next;
     }
 }
@@ -90,40 +84,34 @@ void QueryPlan::ProcessSelect(unordered_map<string, AndList *> *tableSelectionAn
 
 void QueryPlan::ProcessJoins(vector<AndList *> *joins) {
     for (AndList *andList : *joins) {
-        OrList *orList = andList->left;
 
-        string leftOperandName = string(orList->left->left->value);
-        string tableName1 = leftOperandName.substr(0, leftOperandName.find('.'));
-        string groupName1 = relationToGroupMap[tableName1];
-        QueryPlanNode *inputRelOp1 = groupToQueryPlanNodeMap[groupName1];
+        string leftOperand = string(andList->left->left->left->value);
+        string leftRelation = leftOperand.substr(0, leftOperand.find('.'));
+        string leftGroup = relationToGroupMap[leftRelation];
+        QueryPlanNode *leftNode = groupToQueryPlanNodeMap[leftGroup];
 
-        string rightOperandName = string(orList->left->right->value);
-        string tableName2 = rightOperandName.substr(0, rightOperandName.find('.'));
-        string groupName2 = relationToGroupMap[tableName2];
-        QueryPlanNode *inputRelOp2 = groupToQueryPlanNodeMap[groupName2];
+        string rightOperand = string(andList->left->left->right->value);
+        string rightRelation = rightOperand.substr(0, rightOperand.find('.'));
+        string rightGroup = relationToGroupMap[rightRelation];
+        QueryPlanNode *rightNode = groupToQueryPlanNodeMap[rightGroup];
 
-        // constructs CNF predicate
         CNF *cnf = new CNF();
         Record *literal = new Record();
-        cnf->GrowFromParseTree(andList, inputRelOp1->outputSchema, inputRelOp2->outputSchema, *literal);
+        cnf->GrowFromParseTree(andList, leftNode->outputSchema, rightNode->outputSchema, *literal);
 
-        JoinQueryPlanNode *joinNode = new JoinQueryPlanNode(inputRelOp1, inputRelOp2);
-
-        Schema *outputSchema = new Schema(inputRelOp1->outputSchema, inputRelOp2->outputSchema);
-        joinNode->outputSchema = outputSchema;
-        joinNode->outputPipeId = nextAvailablePipeId++;
-
-        joinNode->selOp = cnf;
-        joinNode->literal = literal;
-
+        JoinQueryPlanNode *joinQueryPlanNode = new JoinQueryPlanNode(leftNode, rightNode);
+        Schema *outputSchema = new Schema(leftNode->outputSchema, rightNode->outputSchema);
+        joinQueryPlanNode->outputSchema = outputSchema;
+        joinQueryPlanNode->outputPipeId = nextAvailablePipeId++;
+        joinQueryPlanNode->selOp = cnf;
+        joinQueryPlanNode->literal = literal;
         string newGroupName;
-        newGroupName.append(groupName1).append("&").append(groupName2);
-        relationToGroupMap[tableName1] = newGroupName;
-        relationToGroupMap[tableName2] = newGroupName;
-
-        groupToQueryPlanNodeMap.erase(groupName1);
-        groupToQueryPlanNodeMap.erase(groupName2);
-        groupToQueryPlanNodeMap[newGroupName] = joinNode;
+        newGroupName.append(leftGroup).append("&").append(rightGroup);
+        relationToGroupMap[leftRelation] = newGroupName;
+        relationToGroupMap[rightRelation] = newGroupName;
+        groupToQueryPlanNodeMap.erase(leftGroup);
+        groupToQueryPlanNodeMap.erase(rightGroup);
+        groupToQueryPlanNodeMap[newGroupName] = joinQueryPlanNode;
     }
 }
 
@@ -132,36 +120,22 @@ void QueryPlan::ProcessGroupBy() {
     if (!nameList)
         return;
 
-    // Get Resultant RelOp Node.
-    string finalGroupName = groupToQueryPlanNodeMap.begin()->first;
-    QueryPlanNode *inputRelOpNode = groupToQueryPlanNodeMap[finalGroupName];
-
-    Schema *groupByInputSchema = inputRelOpNode->outputSchema;
-
-    // Build Compute function.
+    string group = groupToQueryPlanNodeMap.begin()->first;
+    QueryPlanNode *node = groupToQueryPlanNodeMap[group];
+    Schema *inputSchema = node->outputSchema;
     Function *function = new Function();
-    function->GrowFromParseTree(query->finalFunction, *groupByInputSchema);
+    function->GrowFromParseTree(query->finalFunction, *inputSchema);
+    OrderMaker *orderMaker = new OrderMaker(inputSchema, nameList);
+    vector<int> keepMe;
+    Schema *outputSchema = new Schema(&sumSchema, new Schema(inputSchema, nameList, &keepMe));
 
-    // Build OrderMaker
-    OrderMaker *orderMaker = new OrderMaker(groupByInputSchema, nameList);
-
-    // Build Schema and keepMe From nameList
-    vector<int> keepMeVector;
-    Schema *groupedAttsSchema = new Schema(groupByInputSchema, nameList, &keepMeVector);
-
-    Schema *outputSchema = new Schema(&sumSchema, groupedAttsSchema);
-
-    // Create Group by Node.
-    GroupByQueryPlanNode *groupByNode = new GroupByQueryPlanNode(inputRelOpNode, NULL);
-
-    groupByNode->outputSchema = outputSchema;
-    groupByNode->outputPipeId = nextAvailablePipeId++;
-
-    groupByNode->groupAtts = orderMaker;
-    groupByNode->computeMe = function;
-    groupByNode->distinctFunc = query->distinctFunc;
-
-    groupToQueryPlanNodeMap[finalGroupName] = groupByNode;
+    GroupByQueryPlanNode *groupByQueryPlanNode = new GroupByQueryPlanNode(node, NULL);
+    groupByQueryPlanNode->outputSchema = outputSchema;
+    groupByQueryPlanNode->outputPipeId = nextAvailablePipeId++;
+    groupByQueryPlanNode->groupAtts = orderMaker;
+    groupByQueryPlanNode->computeMe = function;
+    groupByQueryPlanNode->distinctFunc = query->distinctFunc;
+    groupToQueryPlanNodeMap[group] = groupByQueryPlanNode;
 }
 
 void QueryPlan::ProcessSum() {
