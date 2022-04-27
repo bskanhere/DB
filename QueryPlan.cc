@@ -142,47 +142,37 @@ void QueryPlan::ProcessSum() {
     if (query->groupingAtts || !query->finalFunction) {
         return;
     }
-
-    // Get Resultant RelOp Node.
-    string finalGroupName = groupToQueryPlanNodeMap.begin()->first;
-    QueryPlanNode *inputRelOpNode = groupToQueryPlanNodeMap[finalGroupName];
-
-    // Build Compute function.
+    
+    string group = groupToQueryPlanNodeMap.begin()->first;
+    QueryPlanNode *node = groupToQueryPlanNodeMap[group];
     Function *function = new Function();
-    function->GrowFromParseTree(query->finalFunction, *inputRelOpNode->outputSchema);
+    function->GrowFromParseTree(query->finalFunction, *node->outputSchema);
 
-    SumQueryPlanNode *sumNode = new SumQueryPlanNode(inputRelOpNode, NULL);
-    sumNode->outputSchema = &sumSchema;
-    sumNode->outputPipeId = nextAvailablePipeId++;
-
-    sumNode->computeMe = function;
-    sumNode->distinctFunc = query->distinctFunc;
-
-    groupToQueryPlanNodeMap[finalGroupName] = sumNode;
+    SumQueryPlanNode *sumQueryPlanNode = new SumQueryPlanNode(node, NULL);
+    sumQueryPlanNode->outputSchema = &sumSchema;
+    sumQueryPlanNode->outputPipeId = nextAvailablePipeId++;
+    sumQueryPlanNode->computeMe = function;
+    sumQueryPlanNode->distinctFunc = query->distinctFunc;
+    groupToQueryPlanNodeMap[group] = sumQueryPlanNode;
 }
 
 void QueryPlan::ProcessProject() {
+    
     NameList *attsToSelect = query->attsToSelect;
-
     if (query->finalFunction) {
-        NameList *sumAtt = new NameList();
-        sumAtt->name = SUM_ATT_NAME;
-        sumAtt->next = attsToSelect;
-        attsToSelect = sumAtt;
+        NameList *temp = new NameList();
+        temp->name = SUM_ATT_NAME;
+        temp->next = attsToSelect;
+        attsToSelect = temp;
     }
-
     if (!attsToSelect)
         return;
 
-    // Get Resultant RelOp Node.
-    string finalGroupName = groupToQueryPlanNodeMap.begin()->first;
-    QueryPlanNode *inputRelOpNode = groupToQueryPlanNodeMap[finalGroupName];
-
-    Schema *inputSchema = inputRelOpNode->outputSchema;
-
+    string group = groupToQueryPlanNodeMap.begin()->first;
+    QueryPlanNode *node = groupToQueryPlanNodeMap[group];
+    Schema *inputSchema = node->outputSchema;
     vector<int> *keepMeVector = new vector<int>;
     Schema *outputSchema = new Schema(inputSchema, attsToSelect, keepMeVector);
-
     int *keepMe = new int();
     keepMe = &keepMeVector->at(0);
 
@@ -190,74 +180,53 @@ void QueryPlan::ProcessProject() {
         return;
     }
 
-    // Create Project RelOp Node
-    ProjectQueryPlanNode *projectNode = new ProjectQueryPlanNode(inputRelOpNode, NULL);
-
-    projectNode->outputSchema = outputSchema;
-    projectNode->outputPipeId = nextAvailablePipeId++;
-
-    projectNode->keepMe = keepMe;
-    projectNode->numAttsInput = inputSchema->GetNumAtts();
-    projectNode->numAttsOutput = outputSchema->GetNumAtts();
-
-    groupToQueryPlanNodeMap[finalGroupName] = projectNode;
+    ProjectQueryPlanNode *projectQueryPlanNode = new ProjectQueryPlanNode(node, NULL);
+    projectQueryPlanNode->outputSchema = outputSchema;
+    projectQueryPlanNode->outputPipeId = nextAvailablePipeId++;
+    projectQueryPlanNode->keepMe = keepMe;
+    projectQueryPlanNode->numAttsInput = inputSchema->GetNumAtts();
+    projectQueryPlanNode->numAttsOutput = outputSchema->GetNumAtts();
+    groupToQueryPlanNodeMap[group] = projectQueryPlanNode;
 }
 
 void QueryPlan::ProcessDuplicateRemoval() {
     if (!query->distinctAtts)
         return;
 
-    // Get Resultant RelOp Node.
-    string finalGroupName = groupToQueryPlanNodeMap.begin()->first;
-    QueryPlanNode *inputRelOpNode = groupToQueryPlanNodeMap[finalGroupName];
-
-    // Create Distinct RelOp Node.
-    DuplicateRemovalQueryPlanNode *duplicateRemovalNode = new DuplicateRemovalQueryPlanNode(inputRelOpNode, NULL);
-
-    duplicateRemovalNode->outputPipeId = nextAvailablePipeId++;
-    duplicateRemovalNode->outputSchema = inputRelOpNode->outputSchema;
-
-    //duplicateRemovalNode->inputSchema = inputRelOpNode->outputSchema;
-
-    groupToQueryPlanNodeMap[finalGroupName] = duplicateRemovalNode;
+    string group = groupToQueryPlanNodeMap.begin()->first;
+    QueryPlanNode *node = groupToQueryPlanNodeMap[group];
+    
+    DuplicateRemovalQueryPlanNode *duplicateRemovalQueryPlanNode = new DuplicateRemovalQueryPlanNode(node, NULL);
+    duplicateRemovalQueryPlanNode->outputPipeId = nextAvailablePipeId++;
+    duplicateRemovalQueryPlanNode->outputSchema = node->outputSchema;
+    groupToQueryPlanNodeMap[group] = duplicateRemovalQueryPlanNode;
 }
 
-void QueryPlan::FindSelectionAndJoins(unordered_map<string, AndList *> *tableSelectionAndList, vector<AndList *> *joins) {
-
+void QueryPlan::FindSelectionAndJoins(unordered_map<string, AndList *> *tableSelections, vector<AndList *> *joins) {
     AndList *andList = query->andList;
     while(andList) {
-        unordered_map<string, AndList *> currentTableSelectionAndList;
-
+        unordered_map<string, AndList *> currentSelection;
         OrList *orList = andList->left;
-
+        
         while (orList) {
-
             Operand *leftOperand = orList->left->left;
             Operand *rightOperand = orList->left->right;
-
-            // Duplicate OrList
             OrList *newOrList = new OrList();
             newOrList->left = orList->left;
             if (leftOperand->code == NAME && rightOperand->code == NAME) {
                 AndList *newAndList = new AndList();
-
-                // Add to new or list to and list.
                 newAndList->left = newOrList;
-
-                // Push newly created and list to joins vector.
                 joins->push_back(newAndList);
             } else if (leftOperand->code == NAME || rightOperand->code == NAME) {
-                Operand *nameOperand = leftOperand->code == NAME ? leftOperand : rightOperand;
-                string name = string(nameOperand->value);
-                string relationName = name.substr(0, name.find('.'));
-
-                if (currentTableSelectionAndList.find(relationName) == currentTableSelectionAndList.end()) {
+                Operand *operand = leftOperand->code == NAME ? leftOperand : rightOperand;
+                string name = string(operand->value);
+                string relation = name.substr(0, name.find('.'));
+                if (currentSelection.find(relation) == currentSelection.end()) {
                     AndList *newAndList = new AndList();
                     newAndList->left = newOrList;
-                    currentTableSelectionAndList[relationName] = newAndList;
+                    currentSelection[relation] = newAndList;
                 } else {
-                    OrList *currentOrList = currentTableSelectionAndList[relationName]->left;
-
+                    OrList *currentOrList = currentSelection[relation]->left;
                     while (currentOrList->rightOr) {
                         currentOrList = currentOrList->rightOr;
                     }
@@ -267,81 +236,70 @@ void QueryPlan::FindSelectionAndJoins(unordered_map<string, AndList *> *tableSel
             orList = orList->rightOr;
         }
 
-        // Iterate and merge and lists
-        for (auto const &item : currentTableSelectionAndList) {
-            if (tableSelectionAndList->find(item.first) == tableSelectionAndList->end()) {
-                (*tableSelectionAndList)[item.first] = item.second;
+        for (auto const &item : currentSelection) {
+            if (tableSelections->find(item.first) == tableSelections->end()) {
+                (*tableSelections)[item.first] = item.second;
             } else {
-                AndList *currentAndList = tableSelectionAndList->at(item.first);
-
+                AndList *currentAndList = tableSelections->at(item.first);
                 while (currentAndList->rightAnd) {
                     currentAndList = currentAndList->rightAnd;
                 }
-
                 currentAndList->rightAnd = item.second;
             }
         }
-
         andList = andList->rightAnd;
     }
 }
 
-void QueryPlan::FindMinTupleJoin(vector<AndList *> *joins, vector<AndList *> *joins_arranged) {
-    int n = joins->size();
-    if (n < 1) {
+void QueryPlan::FindMinTupleJoin(vector<AndList *> *join, vector<AndList *> *minTupleCountJoin) {
+    if (join->size() < 1) {
         return;
     }
-    int initialPermutation[n];
-    for (int i = 0; i < n; i++) {
+    int initialPermutation[join->size()];
+    for (int i = 0; i < join->size(); i++) {
         initialPermutation[i] = i;
     }
 
     vector<int *> permutations;
-
-    BuildJoinPermutation(initialPermutation, joins->size(), joins->size(), &permutations);
-    int minI = -1;
-    double minIntermediateTuples = DBL_MAX;
+    BuildJoinPermutation(initialPermutation, join->size(), join->size(), &permutations);
+    int minIndex = -1;
+    double minTupleCount = DBL_MAX;
     for (int i = 0; i < permutations.size(); i++) {
-        double permutationIntermediateTuples = 0.0;
-        Statistics dummy(*statistics);
+        double permutationTupleCount = 0.0;
+        Statistics temp(*statistics);
 
         int relNamesIndex = 0;
-        char **relNames = new char *[2 * n];
+        char **relNames = new char *[2 * join->size()];
         unordered_set<string> relNamesSet;
-        for (int j = 0; j < n; j++) {
-            AndList *currentAndList = joins->at(permutations[i][j]);
-            string attNameWithRelName1 = string(currentAndList->left->left->left->value);
-            string attNameWithRelName2 = string(currentAndList->left->left->right->value);
-            cout << attNameWithRelName1 << " " << attNameWithRelName2 << endl;
-            string relName1 = attNameWithRelName1.substr(0, attNameWithRelName1.find('.'));
-            string relName2 = attNameWithRelName2.substr(0, attNameWithRelName2.find('.'));
+        for (int j = 0; j < join->size(); j++) {
+            AndList *currentAndList = join->at(permutations[i][j]);
+            string leftAttIdentifier = string(currentAndList->left->left->left->value);
+            string rightAttIdentifier = string(currentAndList->left->left->right->value);
+            string leftRelation = leftAttIdentifier.substr(0, leftAttIdentifier.find('.'));
+            string rightRelation = rightAttIdentifier.substr(0, rightAttIdentifier.find('.'));
 
-            if (relNamesSet.find(relName1) == relNamesSet.end()) {
-                relNamesSet.insert(string(relName1));
-                char *newRel = new char[relName1.length() + 1];
-                strcpy(newRel, relName1.c_str());
+            if (relNamesSet.find(leftRelation) == relNamesSet.end()) {
+                relNamesSet.insert(string(leftRelation));
+                char *newRel = new char[leftRelation.length() + 1];
+                strcpy(newRel, leftRelation.c_str());
                 relNames[relNamesIndex++] = newRel;
             }
-
-            if (relNamesSet.find(relName2) == relNamesSet.end()) {
-                relNamesSet.insert(relName2);
-                char *newRel = new char[relName2.length() + 1];
-                strcpy(newRel, relName2.c_str());
+            if (relNamesSet.find(rightRelation) == relNamesSet.end()) {
+                relNamesSet.insert(rightRelation);
+                char *newRel = new char[rightRelation.length() + 1];
+                strcpy(newRel, rightRelation.c_str());
                 relNames[relNamesIndex++] = newRel;
             }
-
-            double intermediate = dummy.Estimate(currentAndList, relNames, relNamesIndex);
-            permutationIntermediateTuples += intermediate;
-            dummy.Apply(currentAndList, relNames, relNamesIndex);
-
+            permutationTupleCount += temp.Estimate(currentAndList, relNames, relNamesIndex);
+            temp.Apply(currentAndList, relNames, relNamesIndex);
         }
-        if (permutationIntermediateTuples < minIntermediateTuples) {
-            minIntermediateTuples = permutationIntermediateTuples;
-            minI = i;
+        if (permutationTupleCount < minTupleCount) {
+            minTupleCount = permutationTupleCount;
+            minIndex = i;
         }
     }
-    for (int i = 0; i < n; i++) {
-        joins_arranged->push_back(joins->at(permutations[minI][i]));
+    for (int i = 0; i < join->size(); i++) {
+        minTupleCountJoin->push_back(join->at(permutations[minIndex][i]));
     }
 }
 
