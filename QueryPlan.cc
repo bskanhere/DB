@@ -12,28 +12,28 @@ QueryPlan::QueryPlan(Statistics *statistics, Query *query) {
     ProcessRelationFiles();
 
     // Split the AndList into selection and joins.
-    SplitAndList(&tableSelectionAndList, &joins);
+    FindSelectionAndJoins(&tableSelectionAndList, &joins);
 
     // Apply selection on tables using SelectPipe RelOp.
     ProcessSelect(&tableSelectionAndList);
 
     // Rearrange joins, so that number of intermediate tuples generated will be minimum.
-    RearrangeJoins(&joins, &joins_arranged);
+    FindMinTupleJoin(&joins, &joins_arranged);
     
     // Apply joins on tables using Join RelOp.
-    ApplyJoins(&joins_arranged);
+    ProcessJoins(&joins_arranged);
 
     // Apply group by if it is in the query using GroupBy RelOp.
-    ApplyGroupBy();
+    ProcessGroupBy();
 
     // Apply Function if it is in the query using Sum RelOp.
-    ApplySum();
+    ProcessSum();
 
     // Apply Project using Project RelOp.
-    ApplyProject();
+    ProcessProject();
 
     // Apply Duplicate removal using DuplicateRemoval RelOp if distinct is present.
-    ApplyDuplicateRemoval();
+    ProcessDuplicateRemoval();
 }
 
 QueryPlan::~QueryPlan() {
@@ -53,8 +53,8 @@ void QueryPlan::ProcessRelationFiles() {
         selectFileNode->outputSchema = schema;
         selectFileNode->outputPipeId = nextAvailablePipeId++;
 
-        relNameToGroupNameMap[table->aliasAs] = table->aliasAs;
-        groupNameToRelOpNode[table->aliasAs] = selectFileNode;
+        relationToGroupMap[table->aliasAs] = table->aliasAs;
+        groupToQueryPlanNodeMap[table->aliasAs] = selectFileNode;
 
         table = table->next;
     }
@@ -62,51 +62,45 @@ void QueryPlan::ProcessRelationFiles() {
 
 void QueryPlan::ProcessSelect(unordered_map<string, AndList *> *tableSelectionAndList) {
     for (auto const &item : *tableSelectionAndList) {
-        string relName = item.first;
-        string groupName = relNameToGroupNameMap[relName];
-        SelectFileQueryPlanNode *inputRelOpNode = dynamic_cast<SelectFileQueryPlanNode *>(groupNameToRelOpNode[groupName]);
-
-        // Create CNF
+        string relation = item.first;
+        string group = relationToGroupMap[relation];
+        SelectFileQueryPlanNode *node = dynamic_cast<SelectFileQueryPlanNode *>(groupToQueryPlanNodeMap[group]);
         AndList *andList = item.second;
         CNF *cnf = new CNF();
         Record *literal = new Record();
-        cnf->GrowFromParseTree(andList, inputRelOpNode->outputSchema, *literal); // constructs CNF predicate
+        cnf->GrowFromParseTree(andList, node->outputSchema, *literal); 
 
-        if (!inputRelOpNode->selOp) {
-            inputRelOpNode->selOp = cnf;
-            inputRelOpNode->literal = literal;
+        if (node->selOp) {
+            SelectPipeQueryPlanNode *selectPipeQueryPlanNode = new SelectPipeQueryPlanNode(node, NULL);
+            selectPipeQueryPlanNode->outputSchema = node->outputSchema;
+            selectPipeQueryPlanNode->outputPipeId = nextAvailablePipeId++;
+            selectPipeQueryPlanNode->selOp = cnf;
+            selectPipeQueryPlanNode->literal = literal;
+            groupToQueryPlanNodeMap[group] = selectPipeQueryPlanNode;
+            
         } else {
-            // Create SelectPipe
-            SelectPipeQueryPlanNode *selectPipeNode = new SelectPipeQueryPlanNode(inputRelOpNode, NULL);
-
-            selectPipeNode->outputSchema = inputRelOpNode->outputSchema;
-            selectPipeNode->outputPipeId = nextAvailablePipeId++;
-
-            selectPipeNode->selOp = cnf;
-            selectPipeNode->literal = literal;
-
-            groupNameToRelOpNode[groupName] = selectPipeNode;
+            node->selOp = cnf;
+            node->literal = literal;
         }
 
-        // Updating Statistics
-        char *applyRelNames[] = {const_cast<char *>(relName.c_str())};
-        statistics->Apply(andList, applyRelNames, 1);
+        char *relations[] = {const_cast<char *>(relation.c_str())};
+        statistics->Apply(andList, relations, 1);
     }
 }
 
-void QueryPlan::ApplyJoins(vector<AndList *> *joins) {
+void QueryPlan::ProcessJoins(vector<AndList *> *joins) {
     for (AndList *andList : *joins) {
         OrList *orList = andList->left;
 
         string leftOperandName = string(orList->left->left->value);
         string tableName1 = leftOperandName.substr(0, leftOperandName.find('.'));
-        string groupName1 = relNameToGroupNameMap[tableName1];
-        QueryPlanNode *inputRelOp1 = groupNameToRelOpNode[groupName1];
+        string groupName1 = relationToGroupMap[tableName1];
+        QueryPlanNode *inputRelOp1 = groupToQueryPlanNodeMap[groupName1];
 
         string rightOperandName = string(orList->left->right->value);
         string tableName2 = rightOperandName.substr(0, rightOperandName.find('.'));
-        string groupName2 = relNameToGroupNameMap[tableName2];
-        QueryPlanNode *inputRelOp2 = groupNameToRelOpNode[groupName2];
+        string groupName2 = relationToGroupMap[tableName2];
+        QueryPlanNode *inputRelOp2 = groupToQueryPlanNodeMap[groupName2];
 
         // constructs CNF predicate
         CNF *cnf = new CNF();
@@ -124,23 +118,23 @@ void QueryPlan::ApplyJoins(vector<AndList *> *joins) {
 
         string newGroupName;
         newGroupName.append(groupName1).append("&").append(groupName2);
-        relNameToGroupNameMap[tableName1] = newGroupName;
-        relNameToGroupNameMap[tableName2] = newGroupName;
+        relationToGroupMap[tableName1] = newGroupName;
+        relationToGroupMap[tableName2] = newGroupName;
 
-        groupNameToRelOpNode.erase(groupName1);
-        groupNameToRelOpNode.erase(groupName2);
-        groupNameToRelOpNode[newGroupName] = joinNode;
+        groupToQueryPlanNodeMap.erase(groupName1);
+        groupToQueryPlanNodeMap.erase(groupName2);
+        groupToQueryPlanNodeMap[newGroupName] = joinNode;
     }
 }
 
-void QueryPlan::ApplyGroupBy() {
+void QueryPlan::ProcessGroupBy() {
     NameList *nameList = query->groupingAtts;
     if (!nameList)
         return;
 
     // Get Resultant RelOp Node.
-    string finalGroupName = GetResultantGroupName();
-    QueryPlanNode *inputRelOpNode = groupNameToRelOpNode[finalGroupName];
+    string finalGroupName = groupToQueryPlanNodeMap.begin()->first;
+    QueryPlanNode *inputRelOpNode = groupToQueryPlanNodeMap[finalGroupName];
 
     Schema *groupByInputSchema = inputRelOpNode->outputSchema;
 
@@ -167,17 +161,17 @@ void QueryPlan::ApplyGroupBy() {
     groupByNode->computeMe = function;
     groupByNode->distinctFunc = query->distinctFunc;
 
-    groupNameToRelOpNode[finalGroupName] = groupByNode;
+    groupToQueryPlanNodeMap[finalGroupName] = groupByNode;
 }
 
-void QueryPlan::ApplySum() {
+void QueryPlan::ProcessSum() {
     if (query->groupingAtts || !query->finalFunction) {
         return;
     }
 
     // Get Resultant RelOp Node.
-    string finalGroupName = GetResultantGroupName();
-    QueryPlanNode *inputRelOpNode = groupNameToRelOpNode[finalGroupName];
+    string finalGroupName = groupToQueryPlanNodeMap.begin()->first;
+    QueryPlanNode *inputRelOpNode = groupToQueryPlanNodeMap[finalGroupName];
 
     // Build Compute function.
     Function *function = new Function();
@@ -190,10 +184,10 @@ void QueryPlan::ApplySum() {
     sumNode->computeMe = function;
     sumNode->distinctFunc = query->distinctFunc;
 
-    groupNameToRelOpNode[finalGroupName] = sumNode;
+    groupToQueryPlanNodeMap[finalGroupName] = sumNode;
 }
 
-void QueryPlan::ApplyProject() {
+void QueryPlan::ProcessProject() {
     NameList *attsToSelect = query->attsToSelect;
 
     if (query->finalFunction) {
@@ -207,8 +201,8 @@ void QueryPlan::ApplyProject() {
         return;
 
     // Get Resultant RelOp Node.
-    string finalGroupName = GetResultantGroupName();
-    QueryPlanNode *inputRelOpNode = groupNameToRelOpNode[finalGroupName];
+    string finalGroupName = groupToQueryPlanNodeMap.begin()->first;
+    QueryPlanNode *inputRelOpNode = groupToQueryPlanNodeMap[finalGroupName];
 
     Schema *inputSchema = inputRelOpNode->outputSchema;
 
@@ -232,16 +226,16 @@ void QueryPlan::ApplyProject() {
     projectNode->numAttsInput = inputSchema->GetNumAtts();
     projectNode->numAttsOutput = outputSchema->GetNumAtts();
 
-    groupNameToRelOpNode[finalGroupName] = projectNode;
+    groupToQueryPlanNodeMap[finalGroupName] = projectNode;
 }
 
-void QueryPlan::ApplyDuplicateRemoval() {
+void QueryPlan::ProcessDuplicateRemoval() {
     if (!query->distinctAtts)
         return;
 
     // Get Resultant RelOp Node.
-    string finalGroupName = GetResultantGroupName();
-    QueryPlanNode *inputRelOpNode = groupNameToRelOpNode[finalGroupName];
+    string finalGroupName = groupToQueryPlanNodeMap.begin()->first;
+    QueryPlanNode *inputRelOpNode = groupToQueryPlanNodeMap[finalGroupName];
 
     // Create Distinct RelOp Node.
     DuplicateRemovalQueryPlanNode *duplicateRemovalNode = new DuplicateRemovalQueryPlanNode(inputRelOpNode, NULL);
@@ -251,10 +245,10 @@ void QueryPlan::ApplyDuplicateRemoval() {
 
     //duplicateRemovalNode->inputSchema = inputRelOpNode->outputSchema;
 
-    groupNameToRelOpNode[finalGroupName] = duplicateRemovalNode;
+    groupToQueryPlanNodeMap[finalGroupName] = duplicateRemovalNode;
 }
 
-void QueryPlan::SplitAndList(unordered_map<string, AndList *> *tableSelectionAndList, vector<AndList *> *joins) {
+void QueryPlan::FindSelectionAndJoins(unordered_map<string, AndList *> *tableSelectionAndList, vector<AndList *> *joins) {
 
     AndList *andList = query->andList;
     while(andList) {
@@ -318,7 +312,7 @@ void QueryPlan::SplitAndList(unordered_map<string, AndList *> *tableSelectionAnd
     }
 }
 
-void QueryPlan::RearrangeJoins(vector<AndList *> *joins, vector<AndList *> *joins_arranged) {
+void QueryPlan::FindMinTupleJoin(vector<AndList *> *joins, vector<AndList *> *joins_arranged) {
     int n = joins->size();
     if (n < 1) {
         return;
@@ -330,8 +324,7 @@ void QueryPlan::RearrangeJoins(vector<AndList *> *joins, vector<AndList *> *join
 
     vector<int *> permutations;
 
-    HeapPermutation(initialPermutation, joins->size(), joins->size(), &permutations);
-    cout << "Heap Permutation Done - "<< permutations.size() << endl;
+    BuildJoinPermutation(initialPermutation, joins->size(), joins->size(), &permutations);
     int minI = -1;
     double minIntermediateTuples = DBL_MAX;
     for (int i = 0; i < permutations.size(); i++) {
@@ -364,65 +357,51 @@ void QueryPlan::RearrangeJoins(vector<AndList *> *joins, vector<AndList *> *join
             }
 
             double intermediate = dummy.Estimate(currentAndList, relNames, relNamesIndex);
-            cout << "Intermidiate  - " << intermediate << endl;
             permutationIntermediateTuples += intermediate;
             dummy.Apply(currentAndList, relNames, relNamesIndex);
 
         }
-        cout << "Current Permuation value - " << permutationIntermediateTuples << endl;
-        cout << "Current Max Value - " << minIntermediateTuples << endl;
         if (permutationIntermediateTuples < minIntermediateTuples) {
-            cout << "Updatin min" << endl;
             minIntermediateTuples = permutationIntermediateTuples;
             minI = i;
         }
     }
-    cout<<"Min Found"<<endl;
     for (int i = 0; i < n; i++) {
-        cout << "Pushing - " << minI << " "<< i << endl;
         joins_arranged->push_back(joins->at(permutations[minI][i]));
     }
-    cout << "Min Pushed" << endl;
 }
 
-void HeapPermutation(int *a, int size, int n, vector<int *> *permutations) {
+void BuildJoinPermutation(int *initialPermutation, int p, int size, vector<int *> *permutations) {
     // if size becomes 1 then prints the obtained
     // permutation
-    if (size == 1) {
+    if (p == 1) {
         // Add new Permutation in the permutations vector.
-        int *newPermutation = new int[n];
-        for (int i = 0; i < n; i++) {
-            newPermutation[i] = a[i];
+        int *newPermutation = new int[size];
+        for (int i = 0; i < size; i++) {
+            newPermutation[i] = initialPermutation[i];
         }
         permutations->push_back(newPermutation);
         return;
     }
 
-    for (int i = 0; i < size; i++) {
-        HeapPermutation(a, size - 1, n, permutations);
+    for (int i = 0; i < p; i++) {
+        BuildJoinPermutation(initialPermutation, p - 1, size, permutations);
 
         // if size is odd, swap first and last
         // element
-        if (size % 2 == 1)
-            swap(a[0], a[size - 1]);
+        if (p % 2 == 1)
+            swap(initialPermutation[0], initialPermutation[p - 1]);
 
             // If size is even, swap ith and last
             // element
         else
-            swap(a[i], a[size - 1]);
+            swap(initialPermutation[i], initialPermutation[p - 1]);
     }
-}
-
-string QueryPlan::GetResultantGroupName() {
-    if (groupNameToRelOpNode.size() != 1) {
-        exit(1);
-    }
-    return groupNameToRelOpNode.begin()->first;
 }
 
 void QueryPlan::Print() {
     cout << "INORDER TRAVERSAL: " << "\n";
-    PrintQueryPlanInOrder(groupNameToRelOpNode[GetResultantGroupName()]);
+    PrintQueryPlanInOrder(groupToQueryPlanNodeMap[groupToQueryPlanNodeMap.begin()->first]);
 }
 
 void QueryPlan::PrintQueryPlanInOrder(QueryPlanNode *node) {

@@ -3,7 +3,6 @@
 
 #include <vector>
 #include <float.h>
-
 #include "ParseTree.h"
 #include "Statistics.h"
 #include "Schema.h"
@@ -12,7 +11,7 @@
 #include "RelOp.h"
 #include "Comparison.h"
 
-void HeapPermutation(int *a, int size, int n, vector<int *> *permutations);
+void BuildJoinPermutation(int *initialPermutation, int p, int size, vector<int *> *permutations);
 
 struct Query {
     FuncOperator *finalFunction;
@@ -29,32 +28,30 @@ class QueryPlan {
 private:
     Query *query;
     Statistics *statistics;
-    unordered_map<string, QueryPlanNode *> groupNameToRelOpNode;
-    unordered_map<string, string> relNameToGroupNameMap;
+    unordered_map<string, QueryPlanNode *> groupToQueryPlanNodeMap;
+    unordered_map<string, string> relationToGroupMap;
 
     int nextAvailablePipeId = 1;
 
     void ProcessRelationFiles();
 
-    void SplitAndList(unordered_map<string, AndList *> *tableSelectionAndList, vector<AndList *> *joins);
+    void FindSelectionAndJoins(unordered_map<string, AndList *> *tableSelectionAndList, vector<AndList *> *joins);
 
     void ProcessSelect(unordered_map<string, AndList *> *tableSelectionAndList);
 
-    void RearrangeJoins(vector<AndList *> *joins, vector<AndList *> *joins_arranged);
+    void FindMinTupleJoin(vector<AndList *> *joins, vector<AndList *> *joins_arranged);
 
-    void ApplyJoins(vector<AndList *> *joins);
+    void ProcessJoins(vector<AndList *> *joins);
 
-    void ApplyGroupBy();
+    void ProcessGroupBy();
 
-    void ApplySum();
+    void ProcessSum();
 
-    void ApplyDuplicateRemoval();
+    void ProcessDuplicateRemoval();
 
-    void ApplyProject();
+    void ProcessProject();
 
     static void PrintQueryPlanInOrder(QueryPlanNode *node);
-
-    string GetResultantGroupName();
 
 public:
     QueryPlan(Statistics *statistics, Query *query);
