@@ -1,0 +1,256 @@
+TC1
+INORDER TRAVERSAL: 
+******SELECT FILE******
+Output Pipe 1
+Output Schema:
+	Att n.n_nationkey: INT
+	Att n.n_name: STRING
+	Att n.n_regionkey: INT
+	Att n.n_comment: STRING
+
+SELECTION CNF: ( n.n_name = UNITED STATES ) 
+
+******PROJECT******
+Input Pipe 1
+Output Pipe 2
+Output Schema:
+	Att n.n_nationkey: INT
+Number of attributes Input: 4
+Number of attributes Output: 1
+
+***************************************************************************************************************************
+TC2
+INORDER TRAVERSAL: 
+******SELECT FILE******
+Output Pipe 2
+Output Schema:
+	Att n.n_nationkey: INT
+	Att n.n_name: STRING
+	Att n.n_regionkey: INT
+	Att n.n_comment: STRING
+
+SELECTION CNF: ( n.n_nationkey > 5 ) 
+
+******JOIN******
+Input Pipe 2
+Input Pipe 1
+Output Pipe 3
+Output Schema:
+	Att n.n_nationkey: INT
+	Att n.n_name: STRING
+	Att n.n_regionkey: INT
+	Att n.n_comment: STRING
+	Att r.r_regionkey: INT
+	Att r.r_name: STRING
+	Att r.r_comment: STRING
+
+Join CNF: ( n.n_regionkey = r.r_regionkey ) 
+
+******SELECT FILE******
+Output Pipe 1
+Output Schema:
+	Att r.r_regionkey: INT
+	Att r.r_name: STRING
+	Att r.r_comment: STRING
+
+******PROJECT******
+Input Pipe 3
+Output Pipe 4
+Output Schema:
+	Att n.n_name: STRING
+Number of attributes Input: 7
+Number of attributes Output: 1
+
+***************************************************************************************************************************
+TC3
+INORDER TRAVERSAL: 
+******SELECT FILE******
+Output Pipe 2
+Output Schema:
+	Att n.n_nationkey: INT
+	Att n.n_name: STRING
+	Att n.n_regionkey: INT
+	Att n.n_comment: STRING
+
+SELECTION CNF: ( n.n_name = UNITED STATES ) 
+
+******JOIN******
+Input Pipe 2
+Input Pipe 1
+Output Pipe 3
+Output Schema:
+	Att n.n_nationkey: INT
+	Att n.n_name: STRING
+	Att n.n_regionkey: INT
+	Att n.n_comment: STRING
+	Att r.r_regionkey: INT
+	Att r.r_name: STRING
+	Att r.r_comment: STRING
+
+Join CNF: ( n.n_regionkey = r.r_regionkey ) 
+
+******SELECT FILE******
+Output Pipe 1
+Output Schema:
+	Att r.r_regionkey: INT
+	Att r.r_name: STRING
+	Att r.r_comment: STRING
+
+******SUM******
+Input Pipe 3
+Output Pipe 4
+Output Schema:
+	Att SUM: DOUBLE
+
+FUNCTION: (n.n_nationkey)
+
+Distinct Function: 0
+
+***************************************************************************************************************************
+TC4
+INORDER TRAVERSAL: 
+******SELECT FILE******
+Output Pipe 2
+Output Schema:
+	Att n.n_nationkey: INT
+	Att n.n_name: STRING
+	Att n.n_regionkey: INT
+	Att n.n_comment: STRING
+
+SELECTION CNF: ( n.n_name = UNITED STATES ) 
+
+******JOIN******
+Input Pipe 2
+Input Pipe 1
+Output Pipe 3
+Output Schema:
+	Att n.n_nationkey: INT
+	Att n.n_name: STRING
+	Att n.n_regionkey: INT
+	Att n.n_comment: STRING
+	Att r.r_regionkey: INT
+	Att r.r_name: STRING
+	Att r.r_comment: STRING
+
+Join CNF: ( n.n_regionkey = r.r_regionkey ) 
+
+******SELECT FILE******
+Output Pipe 1
+Output Schema:
+	Att r.r_regionkey: INT
+	Att r.r_name: STRING
+	Att r.r_comment: STRING
+
+******GROUP BY******
+Input Pipe 3
+Output Pipe 4
+Output Schema:
+	Att SUM: DOUBLE
+	Att n.n_regionkey: INT
+
+GROUPING ON: n.n_regionkey
+
+FUNCTION: (n.n_regionkey)
+
+Distinct Function: 0
+
+******PROJECT******
+Input Pipe 4
+Output Pipe 5
+Output Schema:
+	Att SUM: DOUBLE
+Number of attributes Input: 2
+Number of attributes Output: 1
+
+***************************************************************************************************************************
+TC5
+INORDER TRAVERSAL: 
+******SELECT FILE******
+Output Pipe 3
+Output Schema:
+	Att n.n_nationkey: INT
+	Att n.n_name: STRING
+	Att n.n_regionkey: INT
+	Att n.n_comment: STRING
+
+SELECTION CNF: ( n.n_nationkey > 10 ) 
+
+******JOIN******
+Input Pipe 3
+Input Pipe 2
+Output Pipe 4
+Output Schema:
+	Att n.n_nationkey: INT
+	Att n.n_name: STRING
+	Att n.n_regionkey: INT
+	Att n.n_comment: STRING
+	Att r.r_regionkey: INT
+	Att r.r_name: STRING
+	Att r.r_comment: STRING
+
+Join CNF: ( n.n_regionkey = r.r_regionkey ) 
+
+******SELECT FILE******
+Output Pipe 2
+Output Schema:
+	Att r.r_regionkey: INT
+	Att r.r_name: STRING
+	Att r.r_comment: STRING
+
+******JOIN******
+Input Pipe 4
+Input Pipe 1
+Output Pipe 5
+Output Schema:
+	Att n.n_nationkey: INT
+	Att n.n_name: STRING
+	Att n.n_regionkey: INT
+	Att n.n_comment: STRING
+	Att r.r_regionkey: INT
+	Att r.r_name: STRING
+	Att r.r_comment: STRING
+	Att c.c_custkey: INT
+	Att c.c_name: STRING
+	Att c.c_address: STRING
+	Att c.c_nationkey: INT
+	Att c.c_phone: STRING
+	Att c.c_acctbal: DOUBLE
+	Att c.c_mktsegment: STRING
+	Att c.c_comment: STRING
+
+Join CNF: ( n.n_nationkey = c.c_nationkey ) 
+
+******SELECT FILE******
+Output Pipe 1
+Output Schema:
+	Att c.c_custkey: INT
+	Att c.c_name: STRING
+	Att c.c_address: STRING
+	Att c.c_nationkey: INT
+	Att c.c_phone: STRING
+	Att c.c_acctbal: DOUBLE
+	Att c.c_mktsegment: STRING
+	Att c.c_comment: STRING
+
+******GROUP BY******
+Input Pipe 5
+Output Pipe 6
+Output Schema:
+	Att SUM: DOUBLE
+	Att r.r_regionkey: INT
+
+GROUPING ON: r.r_regionkey
+
+FUNCTION: ((n.n_nationkey + r.r_regionkey))
+
+Distinct Function: 1
+
+******PROJECT******
+Input Pipe 6
+Output Pipe 7
+Output Schema:
+	Att SUM: DOUBLE
+Number of attributes Input: 2
+Number of attributes Output: 1
+
+***************************************************************************************************************************

@@ -234,7 +234,6 @@ void Statistics::Apply(struct AndList *parseTree, char *relNames[], int numToJoi
                 double numOfTuplesPerAttValueInRight = (numOfTuplesInRightGroup / numOfDistinctInRightAtt);
 
                 double numOfTuplesAfterJoin = numOfTuplesPerAttValueInLeft * numOfTuplesPerAttValueInRight * min(numOfDistinctInLeftAtt, numOfDistinctInRightAtt);
-
                 string newGroupName;
                 newGroupName.append(leftGroupName).append("&").append(rightGroupName);
 
