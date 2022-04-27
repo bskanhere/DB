@@ -320,6 +320,7 @@ void QueryPlan::PrintQueryPlanInOrder(QueryPlanNode *node) {
     if (node == nullptr)
         return;
     PrintQueryPlanInOrder(node->left);
-    node->Print();
-    PrintQueryPlanInOrder(node->right);  
+   
+    PrintQueryPlanInOrder(node->right); 
+     node->Print(); 
 }

@@ -39,6 +39,9 @@ gtest2_2.out: Record.o Comparison.o ComparisonEngine.o Schema.o BigQ.o File.o DB
 gtest4_1.out: Statistics.o y.tab.o yyfunc.tab.o lex.yy.o lex.yyfunc.o gtest4_1.o
 	$(CC) -o gtest4_1.out Statistics.o y.tab.o yyfunc.tab.o lex.yy.o lex.yyfunc.o gtest4_1.o -lfl -l pthread -lgtest
 
+gtest.out: QueryPlan.o QueryPlanNodes.o Statistics.o Record.o Comparison.o Schema.o Function.o gtest.o
+	$(CC) -o gtest.out QueryPlan.o QueryPlanNodes.o Statistics.o Record.o Comparison.o Schema.o Function.o gtest.o -lfl -l pthread -lgtest
+
 test1.o: tests/P1/test.cc
 	$(CC) -g -c tests/P1/test.cc
 
@@ -71,6 +74,9 @@ gtest3.o: tests/P3/gtest.cc
 
 gtest4_1.o: tests/P4.1/gtest.cc
 	$(CC) -g -c tests/P4.1/gtest.cc
+
+gtest.o: gtest.cc
+	$(CC) -g -c gtest.cc
 
 main.o: main.cc
 	$(CC) -g -c main.cc

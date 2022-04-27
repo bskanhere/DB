@@ -1,3 +1,3 @@
-SELECT n.n_name
-FROM nation AS n, region AS r
-WHERE (n.n_regionkey = r.r_regionkey)
+SELECT n.n_nationkey
+FROM nation AS n 
+WHERE (n.n_name = 'UNITED STATES')
